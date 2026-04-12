@@ -1,0 +1,14 @@
+[package]
+name = "rust-recovery"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+
+[workspace]
+members = [
+  "crates/disk_reader",
+  "crates/file_carver",
+  "crates/recovery_engine"
+]
+resolver = "2"
