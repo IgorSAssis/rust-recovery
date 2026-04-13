@@ -4,11 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+disk_reader = { path = "./crates/disk_reader" }
+file_carver = { path = "./crates/file_carver" }
+recovery_engine = { path = "./crates/recovery_engine" }
 
 [workspace]
-members = [
-  "crates/disk_reader",
-  "crates/file_carver",
-  "crates/recovery_engine"
-]
+members = ["crates/disk_reader", "crates/file_carver", "crates/recovery_engine"]
 resolver = "2"
