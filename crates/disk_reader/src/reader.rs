@@ -1,6 +1,8 @@
 use std::fs::File;
-use std::io::{Read, Result, Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
+
+use crate::error::DiskError;
 
 #[derive(Debug)]
 pub struct DiskReader {
@@ -8,17 +10,21 @@ pub struct DiskReader {
 }
 
 impl DiskReader {
-    pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
+    pub fn open<P: AsRef<Path>>(path: P) -> Result<Self, DiskError> {
         let file = File::open(path)?;
         Ok(Self { file })
     }
 
-    pub fn read_chunk(&mut self, buffer: &mut [u8]) -> Result<usize> {
-        self.file.read(buffer)
+    pub fn read_chunk(&mut self, buffer: &mut [u8]) -> Result<usize, DiskError> {
+        let bytes_read = self.file.read(buffer)?;
+
+        Ok(bytes_read)
     }
 
-    pub fn read_at(&mut self, offset: u64, buffer: &mut [u8]) -> Result<usize> {
+    pub fn read_at(&mut self, offset: u64, buffer: &mut [u8]) -> Result<usize, DiskError> {
         self.file.seek(SeekFrom::Start(offset))?;
-        self.read_chunk(buffer)
+        let bytes_read = self.read_chunk(buffer)?;
+
+        Ok(bytes_read)
     }
 }

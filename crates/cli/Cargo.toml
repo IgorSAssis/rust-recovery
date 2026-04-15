@@ -1,11 +1,11 @@
 [package]
-name = "recovery_engine"
+name = "cli"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 anyhow.workspace = true
-thiserror.workspace = true
+clap.workspace = true
 
 disk_reader = { path = "../disk_reader" }
 file_carver = { path = "../file_carver" }

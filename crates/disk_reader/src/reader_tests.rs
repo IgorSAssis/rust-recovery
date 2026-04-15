@@ -3,9 +3,9 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 
-fn create_test_file(data: &[u8]) -> PathBuf {
+fn create_test_file(name: &str, data: &[u8]) -> PathBuf {
     let mut path = std::env::temp_dir();
-    path.push("rust-recover_test.img");
+    path.push(format!("rust-recover_{}.img", name));
 
     let mut file = File::create(&path).unwrap();
     file.write_all(data).unwrap();
@@ -16,7 +16,7 @@ fn create_test_file(data: &[u8]) -> PathBuf {
 #[test]
 fn should_open_existing_file() {
     let data = vec![1, 2, 3, 4];
-    let path = create_test_file(&data);
+    let path = create_test_file("open_existing", &data);
     let reader = DiskReader::open(&path);
 
     assert!(reader.is_ok());
@@ -25,7 +25,7 @@ fn should_open_existing_file() {
 #[test]
 fn should_read_bytes_from_file() {
     let data = vec![10, 20, 30, 40];
-    let path = create_test_file(&data);
+    let path = create_test_file("read_bytes", &data);
     let mut reader = DiskReader::open(&path).unwrap();
     let mut buffer = [0u8; 4];
 
@@ -38,7 +38,7 @@ fn should_read_bytes_from_file() {
 #[test]
 fn should_read_bytes_at_offset() {
     let data = vec![0, 1, 2, 3, 4, 5];
-    let path = create_test_file(&data);
+    let path = create_test_file("read_at_offset", &data);
     let mut reader = DiskReader::open(&path).unwrap();
     let mut buffer = [0u8; 2];
 
