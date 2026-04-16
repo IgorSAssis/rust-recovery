@@ -11,6 +11,9 @@ pub enum EngineError {
     #[error("Carver error: {0}")]
     Carver(#[from] CarverError),
 
-    #[error("Unknown error")]
-    Unknown,
+    #[error("Output directory '{path}' does not exist or is not writable")]
+    InvalidOutputDir { path: String },
+
+    #[error("Scan aborted: no supported signatures configured")]
+    NoSignaturesConfigured,
 }
