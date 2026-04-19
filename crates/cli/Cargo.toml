@@ -7,5 +7,4 @@ edition = "2024"
 anyhow.workspace = true
 clap.workspace = true
 
-disk_reader = { path = "../disk_reader" }
 file_carver = { path = "../file_carver" }

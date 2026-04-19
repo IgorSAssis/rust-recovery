@@ -91,7 +91,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
- "disk_reader",
  "file_carver",
 ]
 
@@ -100,14 +99,6 @@ name = "colorchoice"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d07550c9036bf2ae0c684c4297d503f838287c83c53686d05370d0e139ae570"
-
-[[package]]
-name = "disk_reader"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "thiserror",
-]
 
 [[package]]
 name = "file_carver"
@@ -151,7 +142,6 @@ name = "recovery_engine"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "disk_reader",
  "file_carver",
  "thiserror",
 ]
@@ -163,7 +153,6 @@ dependencies = [
  "anyhow",
  "clap",
  "cli",
- "disk_reader",
  "file_carver",
  "recovery_engine",
  "thiserror",
