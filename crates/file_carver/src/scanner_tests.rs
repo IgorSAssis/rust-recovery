@@ -1,7 +1,7 @@
 use std::io::Cursor;
 
 use crate::carved_file::CarvedFile;
-use crate::scanner::scan;
+use crate::scanner::Scanner;
 use crate::signature::{FileKind, JPEG_SIGNATURE, PNG_SIGNATURE};
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -27,7 +27,11 @@ fn png(start: u64, end: u64) -> CarvedFile {
 #[test]
 fn should_return_empty_for_empty_source() {
     let mut cursor = Cursor::new(vec![]);
-    let result = scan(&mut cursor, &[&JPEG_SIGNATURE], 64).unwrap();
+    let result = Scanner::new()
+        .add_signature(&JPEG_SIGNATURE)
+        .with_chunk_size(64)
+        .scan(&mut cursor)
+        .unwrap();
     assert!(result.is_empty());
 }
 
@@ -35,7 +39,11 @@ fn should_return_empty_for_empty_source() {
 fn should_return_empty_when_no_signatures_match() {
     let data = vec![0xAA, 0xBB, 0xCC, 0xDD];
     let mut cursor = Cursor::new(data);
-    let result = scan(&mut cursor, &[&JPEG_SIGNATURE], 64).unwrap();
+    let result = Scanner::new()
+        .add_signature(&JPEG_SIGNATURE)
+        .with_chunk_size(64)
+        .scan(&mut cursor)
+        .unwrap();
     assert!(result.is_empty());
 }
 
@@ -44,7 +52,11 @@ fn should_find_jpeg_entirely_within_single_chunk() {
     // Header FF D8 FF — data — footer FF D9, all within one chunk.
     let data = vec![0xFF, 0xD8, 0xFF, 0xAA, 0xBB, 0xFF, 0xD9, 0x00];
     let mut cursor = Cursor::new(data);
-    let result = scan(&mut cursor, &[&JPEG_SIGNATURE], 64).unwrap();
+    let result = Scanner::new()
+        .add_signature(&JPEG_SIGNATURE)
+        .with_chunk_size(64)
+        .scan(&mut cursor)
+        .unwrap();
     assert_eq!(result, vec![jpeg(0, 7)]);
 }
 
@@ -53,7 +65,11 @@ fn should_find_jpeg_with_offset_prefix() {
     // File does not start at byte 0.
     let data = vec![0x00, 0x11, 0x22, 0xFF, 0xD8, 0xFF, 0xCC, 0xFF, 0xD9, 0x33];
     let mut cursor = Cursor::new(data);
-    let result = scan(&mut cursor, &[&JPEG_SIGNATURE], 64).unwrap();
+    let result = Scanner::new()
+        .add_signature(&JPEG_SIGNATURE)
+        .with_chunk_size(64)
+        .scan(&mut cursor)
+        .unwrap();
     assert_eq!(result, vec![jpeg(3, 9)]);
 }
 
@@ -66,7 +82,11 @@ fn should_find_jpeg_footer_spanning_two_chunks() {
     // chunk 2: [BB CC FF D9]  — footer present
     let data = vec![0xFF, 0xD8, 0xFF, 0xAA, 0xBB, 0xCC, 0xFF, 0xD9];
     let mut cursor = Cursor::new(data);
-    let result = scan(&mut cursor, &[&JPEG_SIGNATURE], 4).unwrap();
+    let result = Scanner::new()
+        .add_signature(&JPEG_SIGNATURE)
+        .with_chunk_size(4)
+        .scan(&mut cursor)
+        .unwrap();
     assert_eq!(result, vec![jpeg(0, 8)]);
 }
 
@@ -84,7 +104,11 @@ fn should_find_header_split_across_chunk_boundary() {
     data.extend_from_slice(&[0xFF, 0xD8, 0xFF, 0xAA, 0xBB, 0xFF, 0xD9]);
 
     let mut cursor = Cursor::new(data);
-    let result = scan(&mut cursor, &[&JPEG_SIGNATURE], 16).unwrap();
+    let result = Scanner::new()
+        .add_signature(&JPEG_SIGNATURE)
+        .with_chunk_size(16)
+        .scan(&mut cursor)
+        .unwrap();
     assert_eq!(result, vec![jpeg(15, 22)]);
 }
 
@@ -100,7 +124,11 @@ fn should_find_footer_split_across_chunk_boundary() {
         0xD9, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // chunk 2
     ];
     let mut cursor = Cursor::new(data);
-    let result = scan(&mut cursor, &[&JPEG_SIGNATURE], 8).unwrap();
+    let result = Scanner::new()
+        .add_signature(&JPEG_SIGNATURE)
+        .with_chunk_size(8)
+        .scan(&mut cursor)
+        .unwrap();
     assert_eq!(result, vec![jpeg(0, 9)]);
 }
 
@@ -116,7 +144,11 @@ fn should_find_multiple_jpegs_in_sequence() {
         0xFF, 0xD8, 0xFF, 0xBB, 0xFF, 0xD9,
     ];
     let mut cursor = Cursor::new(data);
-    let result = scan(&mut cursor, &[&JPEG_SIGNATURE], 4).unwrap();
+    let result = Scanner::new()
+        .add_signature(&JPEG_SIGNATURE)
+        .with_chunk_size(4)
+        .scan(&mut cursor)
+        .unwrap();
     assert_eq!(result, vec![jpeg(0, 6), jpeg(8, 14)]);
 }
 
@@ -132,7 +164,12 @@ fn should_find_jpeg_and_png_independently() {
         0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
     ];
     let mut cursor = Cursor::new(data);
-    let result = scan(&mut cursor, &[&JPEG_SIGNATURE, &PNG_SIGNATURE], 16).unwrap();
+    let result = Scanner::new()
+        .add_signature(&JPEG_SIGNATURE)
+        .add_signature(&PNG_SIGNATURE)
+        .with_chunk_size(16)
+        .scan(&mut cursor)
+        .unwrap();
     assert_eq!(result, vec![jpeg(0, 6), png(8, 28)]);
 }
 
@@ -151,7 +188,11 @@ fn should_not_duplicate_file_found_near_chunk_boundary() {
         0xFF, 0xCC, 0xDD, 0xFF, 0xD9, 0xEE, // chunk 2
     ];
     let mut cursor = Cursor::new(data);
-    let result = scan(&mut cursor, &[&JPEG_SIGNATURE], 4).unwrap();
+    let result = Scanner::new()
+        .add_signature(&JPEG_SIGNATURE)
+        .with_chunk_size(4)
+        .scan(&mut cursor)
+        .unwrap();
     assert_eq!(
         result.len(),
         1,

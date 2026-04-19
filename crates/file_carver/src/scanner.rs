@@ -1,161 +1,207 @@
 use std::collections::{HashMap, HashSet};
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{self, Read, Seek, SeekFrom};
 
 use crate::carved_file::CarvedFile;
+use crate::matcher::PatternMatcher;
 use crate::signature::{FileKind, Signature};
+use crate::window::{ScanWindow, WindowSlice};
 
-struct InProgress {
+/// A file whose header has been found but whose footer has not yet been located.
+struct PendingFile {
     kind: FileKind,
     start_abs: u64,
 }
 
-/// Scans `source` for all known file signatures using a sliding-window strategy.
+/// Scans a byte source for files using binary signature detection
+/// (header + footer patterns).
 ///
-/// Reading is done in chunks of `chunk_size` bytes. Consecutive chunks overlap
-/// by `max_pattern_length - 1` bytes so that signatures spanning a chunk
-/// boundary are never missed.
+/// # Usage
 ///
-/// Returns carved files sorted by `offset_start`.
-pub fn scan<R: Read + Seek>(
-    source: &mut R,
-    signatures: &[&Signature],
+/// ```ignore
+/// let carved = Scanner::new()
+///     .add_signature(&JPEG_SIGNATURE)
+///     .add_signature(&PNG_SIGNATURE)
+///     .with_chunk_size(4096)
+///     .scan(&mut source)?;
+/// ```
+pub struct Scanner {
     chunk_size: usize,
-) -> std::io::Result<Vec<CarvedFile>> {
-    if signatures.is_empty() || chunk_size == 0 {
-        return Ok(Vec::new());
+    signatures: Vec<&'static Signature>,
+}
+
+impl Default for Scanner {
+    fn default() -> Self {
+        Self {
+            chunk_size: 4096,
+            signatures: Vec::new(),
+        }
+    }
+}
+
+impl Scanner {
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    // The overlap must be large enough to bridge any pattern across a boundary.
-    let max_pattern_len = signatures
-        .iter()
-        .flat_map(|s| [s.header_pattern.len(), s.footer_pattern.len()])
-        .max()
-        .unwrap_or(0);
-    let overlap_size = max_pattern_len.saturating_sub(1);
+    /// Overrides the number of bytes read from the source per iteration.
+    pub fn with_chunk_size(mut self, chunk_size: usize) -> Self {
+        self.chunk_size = chunk_size;
+        self
+    }
 
-    source.seek(SeekFrom::Start(0))?;
+    /// Registers a file signature to be detected during scanning.
+    pub fn add_signature(mut self, signature: &'static Signature) -> Self {
+        self.signatures.push(signature);
+        self
+    }
 
-    let mut carved: Vec<CarvedFile> = Vec::new();
-    let mut in_progress: Vec<InProgress> = Vec::new();
-    // Tracks absolute offsets of headers already registered to prevent the
-    // overlap region from producing duplicate entries on the next iteration.
-    let mut known_headers: HashSet<u64> = HashSet::new();
-
-    let mut overlap: Vec<u8> = Vec::new();
-    let mut chunk = vec![0u8; chunk_size];
-    let mut disk_pos: u64 = 0; // byte position in source BEFORE the current read
-
-    loop {
-        let bytes_read = source.read(&mut chunk)?;
-        if bytes_read == 0 {
-            break;
+    /// Scans `source` from the beginning and returns all detected files,
+    /// sorted by their starting offset.
+    pub fn scan<R: Read + Seek>(&self, source: &mut R) -> io::Result<Vec<CarvedFile>> {
+        if self.signatures.is_empty() || self.chunk_size == 0 {
+            return Ok(Vec::new());
         }
 
-        let new_bytes = &chunk[..bytes_read];
+        source.seek(SeekFrom::Start(0))?;
 
-        // Build the scanning window: tail of the previous chunk + new bytes.
-        // window[0] maps to absolute disk offset `window_base`.
-        let mut window = overlap.clone();
-        window.extend_from_slice(new_bytes);
-        let window_base = disk_pos.saturating_sub(overlap.len() as u64);
+        let overlap_size = self.compute_overlap_size();
+        let mut scan_window = ScanWindow::new(overlap_size, self.chunk_size);
 
-        // ── Step 1 ──────────────────────────────────────────────────────────
-        // Close in-progress files whose footer now appears in this window.
-        // A per-kind cursor ensures multiple same-type files consume footers
-        // in FIFO order without reusing the same footer bytes twice.
+        let mut carved: Vec<CarvedFile> = Vec::new();
+        let mut pending: Vec<PendingFile> = Vec::new();
+        // Tracks absolute offsets of already-registered headers to prevent the
+        // overlap region from producing duplicates on the next iteration.
+        let mut known_headers: HashSet<u64> = HashSet::new();
+
+        while let Some(window) = scan_window.next(source)? {
+            let (still_open, closed) = self.close_pending(pending, &window);
+            let (new_pending, found, new_headers) = self.find_new_headers(&window, &known_headers);
+
+            carved.extend(closed);
+            carved.extend(found);
+            pending = still_open;
+            pending.extend(new_pending);
+            known_headers.extend(new_headers);
+        }
+
+        carved.sort_by_key(|carved_file| carved_file.offset_start);
+        Ok(carved)
+    }
+
+    // ── private helpers ───────────────────────────────────────────────────────
+
+    /// Attempts to close each pending file by searching for its footer in the
+    /// current window.
+    ///
+    /// Returns a tuple `(still_open, closed)`:
+    /// - `still_open`: files whose footer was not found yet.
+    /// - `closed`: files that were successfully closed in this window.
+    fn close_pending(
+        &self,
+        pending: Vec<PendingFile>,
+        window: &WindowSlice,
+    ) -> (Vec<PendingFile>, Vec<CarvedFile>) {
+        // Per-kind cursor: when multiple files of the same type are open,
+        // footers are consumed in FIFO order so that each header gets
+        // matched to the correct footer.
         let mut footer_cursors: HashMap<FileKind, usize> = HashMap::new();
-        let mut still_open: Vec<InProgress> = Vec::new();
+        let mut still_open: Vec<PendingFile> = Vec::new();
+        let mut closed: Vec<CarvedFile> = Vec::new();
 
-        for ip in in_progress {
-            let fp = footer_for(signatures, ip.kind);
-            let from = *footer_cursors.get(&ip.kind).unwrap_or(&0);
+        for pending_file in pending {
+            let footer_pattern = self.footer_pattern_for(pending_file.kind);
+            let footer_matcher = PatternMatcher::new(footer_pattern);
+            let search_from = *footer_cursors.get(&pending_file.kind).unwrap_or(&0);
 
-            match find_pattern(&window, fp, from) {
-                Some(i) => {
-                    carved.push(CarvedFile {
-                        kind: ip.kind,
-                        offset_start: ip.start_abs,
-                        offset_end: window_base + i as u64 + fp.len() as u64,
+            match footer_matcher.find_in(window.bytes(), search_from) {
+                Some(footer_local_idx) => {
+                    closed.push(CarvedFile {
+                        kind: pending_file.kind,
+                        offset_start: pending_file.start_abs,
+                        offset_end: window.absolute_offset(footer_local_idx)
+                            + footer_pattern.len() as u64,
                     });
-                    footer_cursors.insert(ip.kind, i + fp.len());
+                    footer_cursors
+                        .insert(pending_file.kind, footer_local_idx + footer_pattern.len());
                 }
-                None => still_open.push(ip),
+                None => still_open.push(pending_file),
             }
         }
-        in_progress = still_open;
 
-        // ── Step 2 ──────────────────────────────────────────────────────────
-        // Scan the entire window for new headers.
-        // Deduplication via `known_headers` prevents re-processing bytes that
-        // appeared in the previous window's overlap region.
-        for sig in signatures {
-            let hp = sig.header_pattern;
-            if hp.is_empty() {
+        (still_open, closed)
+    }
+
+    /// Scans the current window for new file headers across all registered
+    /// signatures.
+    ///
+    /// Returns a tuple `(new_pending, found, new_headers)`:
+    /// - `new_pending`: headers whose footer was not found in this window yet.
+    /// - `found`: files whose header and footer were both found in this window.
+    /// - `new_headers`: absolute offsets of all headers discovered in this window,
+    ///   to be merged into the caller's deduplication set.
+    fn find_new_headers(
+        &self,
+        window: &WindowSlice,
+        known_headers: &HashSet<u64>,
+    ) -> (Vec<PendingFile>, Vec<CarvedFile>, Vec<u64>) {
+        let mut new_pending: Vec<PendingFile> = Vec::new();
+        let mut found: Vec<CarvedFile> = Vec::new();
+        let mut new_headers: Vec<u64> = Vec::new();
+
+        for signature in &self.signatures {
+            if signature.header_pattern.is_empty() {
                 continue;
             }
 
-            for local_idx in 0..=window.len().saturating_sub(hp.len()) {
-                if &window[local_idx..local_idx + hp.len()] != hp {
-                    continue;
-                }
+            let header_matcher = PatternMatcher::new(signature.header_pattern);
+            let footer_matcher = PatternMatcher::new(signature.footer_pattern);
 
-                let header_abs = window_base + local_idx as u64;
+            for header_local_idx in header_matcher.find_all_in(window.bytes()) {
+                let header_abs = window.absolute_offset(header_local_idx);
+
                 if known_headers.contains(&header_abs) {
                     continue;
                 }
-                known_headers.insert(header_abs);
+                new_headers.push(header_abs);
 
-                let fp = sig.footer_pattern;
-                let footer_from = local_idx + hp.len();
+                let footer_search_from = header_local_idx + signature.header_pattern.len();
 
-                match find_pattern(&window, fp, footer_from) {
-                    Some(j) => carved.push(CarvedFile {
-                        kind: sig.kind,
+                match footer_matcher.find_in(window.bytes(), footer_search_from) {
+                    Some(footer_local_idx) => found.push(CarvedFile {
+                        kind: signature.kind,
                         offset_start: header_abs,
-                        offset_end: window_base + j as u64 + fp.len() as u64,
+                        offset_end: window.absolute_offset(footer_local_idx)
+                            + signature.footer_pattern.len() as u64,
                     }),
-                    None => in_progress.push(InProgress {
-                        kind: sig.kind,
+                    None => new_pending.push(PendingFile {
+                        kind: signature.kind,
                         start_abs: header_abs,
                     }),
                 }
             }
         }
 
-        disk_pos += bytes_read as u64;
-
-        // Keep the last `overlap_size` bytes of the new data for the next window.
-        let tail_start = new_bytes.len().saturating_sub(overlap_size);
-        overlap = new_bytes[tail_start..].to_vec();
+        (new_pending, found, new_headers)
     }
 
-    carved.sort_by_key(|f| f.offset_start);
-    Ok(carved)
-}
+    /// Computes the minimum overlap needed to ensure no pattern spans two
+    /// windows without being detected: `max_pattern_length - 1`.
+    fn compute_overlap_size(&self) -> usize {
+        self.signatures
+            .iter()
+            .flat_map(|sig| [sig.header_pattern.len(), sig.footer_pattern.len()])
+            .max()
+            .unwrap_or(0)
+            .saturating_sub(1)
+    }
 
-/// Searches `window` for `pattern` starting at byte index `from`.
-/// Returns the index of the first match, or `None`.
-fn find_pattern(window: &[u8], pattern: &[u8], from: usize) -> Option<usize> {
-    if pattern.is_empty() {
-        return None;
+    /// Returns the footer pattern for `kind` from the registered signatures,
+    /// or an empty slice if the kind is not registered.
+    fn footer_pattern_for(&self, kind: FileKind) -> &[u8] {
+        self.signatures
+            .iter()
+            .find(|sig| sig.kind == kind)
+            .map(|sig| sig.footer_pattern)
+            .unwrap_or(&[])
     }
-    let last_start = window.len().saturating_sub(pattern.len());
-    if from > last_start {
-        return None;
-    }
-    for i in from..=last_start {
-        if &window[i..i + pattern.len()] == pattern {
-            return Some(i);
-        }
-    }
-    None
-}
-
-/// Returns the footer pattern for `kind` from the provided signature list.
-fn footer_for<'a>(signatures: &[&'a Signature], kind: FileKind) -> &'a [u8] {
-    signatures
-        .iter()
-        .find(|s| s.kind == kind)
-        .map(|s| s.footer_pattern)
-        .unwrap_or(&[])
 }
