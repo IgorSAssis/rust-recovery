@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::io::{self, Read, Seek, SeekFrom};
 
 use crate::carved_file::CarvedFile;
+use crate::constants::DEFAULT_CHUNK_SIZE;
 use crate::matcher::PatternMatcher;
 use crate::signature::{FileKind, Signature};
 use crate::window::{ScanWindow, WindowSlice};
@@ -21,7 +22,7 @@ struct PendingFile {
 /// let carved = Scanner::new()
 ///     .add_signature(&JPEG_SIGNATURE)
 ///     .add_signature(&PNG_SIGNATURE)
-///     .with_chunk_size(4096)
+///     .with_chunk_size(DEFAULT_CHUNK_SIZE)
 ///     .scan(&mut source)?;
 /// ```
 pub struct Scanner {
@@ -32,7 +33,7 @@ pub struct Scanner {
 impl Default for Scanner {
     fn default() -> Self {
         Self {
-            chunk_size: 4096,
+            chunk_size: DEFAULT_CHUNK_SIZE,
             signatures: Vec::new(),
         }
     }

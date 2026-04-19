@@ -11,7 +11,7 @@ pub enum CarverError {
     FooterNotFound { kind: FileKind, header_offset: usize },
 
     #[error("Invalid file range: start={start}, end={end} (end must be greater than start)")]
-    InvalidRange { start: usize, end: usize },
+    InvalidRange { start: u64, end: u64 },
 
     #[error("Failed to extract file: {0}")]
     ExtractionFailed(#[from] std::io::Error),
