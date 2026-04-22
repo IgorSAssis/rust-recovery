@@ -4,6 +4,7 @@ use file_carver::carved_file::CarvedFile;
 use file_carver::signature::{FileKind, JPEG_SIGNATURE, PNG_SIGNATURE};
 
 use super::engine::{ExtractedFile, RecoveryEngine};
+use super::error::EngineError;
 
 // ── in-memory disk builder ────────────────────────────────────────────────────
 
@@ -62,7 +63,7 @@ fn build_test_disk() -> Vec<u8> {
 #[test]
 fn scan_finds_all_recoverable_files() {
     let mut source = Cursor::new(build_test_disk());
-    let engine = RecoveryEngine::new(std::env::temp_dir()).with_chunk_size(512);
+    let engine = RecoveryEngine::new().with_output_dir(std::env::temp_dir()).with_chunk_size(512);
 
     let carved_files = engine.scan(&mut source).unwrap();
 
@@ -72,7 +73,7 @@ fn scan_finds_all_recoverable_files() {
 #[test]
 fn scan_returns_files_at_correct_offsets() {
     let mut source = Cursor::new(build_test_disk());
-    let engine = RecoveryEngine::new(std::env::temp_dir()).with_chunk_size(512);
+    let engine = RecoveryEngine::new().with_output_dir(std::env::temp_dir()).with_chunk_size(512);
 
     let carved_files = engine.scan(&mut source).unwrap();
 
@@ -84,7 +85,7 @@ fn scan_returns_files_at_correct_offsets() {
 #[test]
 fn scan_returns_files_with_correct_kinds() {
     let mut source = Cursor::new(build_test_disk());
-    let engine = RecoveryEngine::new(std::env::temp_dir()).with_chunk_size(512);
+    let engine = RecoveryEngine::new().with_output_dir(std::env::temp_dir()).with_chunk_size(512);
 
     let carved_files = engine.scan(&mut source).unwrap();
 
@@ -96,7 +97,7 @@ fn scan_returns_files_with_correct_kinds() {
 #[test]
 fn scan_ignores_corrupted_file_without_footer() {
     let mut source = Cursor::new(build_test_disk());
-    let engine = RecoveryEngine::new(std::env::temp_dir()).with_chunk_size(512);
+    let engine = RecoveryEngine::new().with_output_dir(std::env::temp_dir()).with_chunk_size(512);
 
     let carved_files = engine.scan(&mut source).unwrap();
 
@@ -109,7 +110,7 @@ fn scan_ignores_corrupted_file_without_footer() {
 #[test]
 fn extract_all_returns_one_entry_per_carved_file() {
     let disk = build_test_disk();
-    let engine = RecoveryEngine::new(std::env::temp_dir()).with_chunk_size(512);
+    let engine = RecoveryEngine::new().with_output_dir(std::env::temp_dir()).with_chunk_size(512);
 
     let mut source = Cursor::new(disk.clone());
     let carved_files = engine.scan(&mut source).unwrap();
@@ -123,7 +124,7 @@ fn extract_all_returns_one_entry_per_carved_file() {
 #[test]
 fn extract_all_returns_files_with_correct_kinds() {
     let disk = build_test_disk();
-    let engine = RecoveryEngine::new(std::env::temp_dir()).with_chunk_size(512);
+    let engine = RecoveryEngine::new().with_output_dir(std::env::temp_dir()).with_chunk_size(512);
 
     let mut source = Cursor::new(disk.clone());
     let carved_files = engine.scan(&mut source).unwrap();
@@ -139,7 +140,7 @@ fn extract_all_returns_files_with_correct_kinds() {
 #[test]
 fn extract_all_returns_files_with_correct_filenames() {
     let disk = build_test_disk();
-    let engine = RecoveryEngine::new(std::env::temp_dir()).with_chunk_size(512);
+    let engine = RecoveryEngine::new().with_output_dir(std::env::temp_dir()).with_chunk_size(512);
 
     let mut source = Cursor::new(disk.clone());
     let carved_files = engine.scan(&mut source).unwrap();
@@ -155,7 +156,7 @@ fn extract_all_returns_files_with_correct_filenames() {
 #[test]
 fn extract_all_bytes_start_with_correct_header() {
     let disk = build_test_disk();
-    let engine = RecoveryEngine::new(std::env::temp_dir()).with_chunk_size(512);
+    let engine = RecoveryEngine::new().with_output_dir(std::env::temp_dir()).with_chunk_size(512);
 
     let mut source = Cursor::new(disk.clone());
     let carved_files = engine.scan(&mut source).unwrap();
@@ -171,7 +172,7 @@ fn extract_all_bytes_start_with_correct_header() {
 #[test]
 fn extract_all_bytes_end_with_correct_footer() {
     let disk = build_test_disk();
-    let engine = RecoveryEngine::new(std::env::temp_dir()).with_chunk_size(512);
+    let engine = RecoveryEngine::new().with_output_dir(std::env::temp_dir()).with_chunk_size(512);
 
     let mut source = Cursor::new(disk.clone());
     let carved_files = engine.scan(&mut source).unwrap();
@@ -186,7 +187,7 @@ fn extract_all_bytes_end_with_correct_footer() {
 
 #[test]
 fn extract_all_with_empty_carved_list_returns_empty_vec() {
-    let engine = RecoveryEngine::new(std::env::temp_dir());
+    let engine = RecoveryEngine::new().with_output_dir(std::env::temp_dir());
     let mut source = Cursor::new(build_test_disk());
 
     let extracted = engine.extract_all(&mut source, &[]).unwrap();
@@ -206,7 +207,7 @@ fn extract_all_with_manually_constructed_carved_file_extracts_correct_bytes() {
         offset_end: 109,
     };
 
-    let engine = RecoveryEngine::new(std::env::temp_dir());
+    let engine = RecoveryEngine::new().with_output_dir(std::env::temp_dir());
     let mut source = Cursor::new(disk.clone());
     let extracted = engine.extract_all(&mut source, &[carved_file]).unwrap();
 
@@ -224,7 +225,7 @@ fn temp_output_dir(suffix: &str) -> std::path::PathBuf {
 #[test]
 fn save_all_creates_output_directory_and_files() {
     let output_dir = temp_output_dir("save_all");
-    let engine = RecoveryEngine::new(&output_dir);
+    let engine = RecoveryEngine::new().with_output_dir(&output_dir);
 
     let extracted = vec![
         ExtractedFile {
@@ -249,7 +250,7 @@ fn save_all_creates_output_directory_and_files() {
 #[test]
 fn save_all_writes_correct_bytes_to_disk() {
     let output_dir = temp_output_dir("save_bytes");
-    let engine = RecoveryEngine::new(&output_dir);
+    let engine = RecoveryEngine::new().with_output_dir(&output_dir);
 
     let expected_bytes = vec![0x01, 0x02, 0x03, 0x04];
     let extracted = vec![ExtractedFile {
@@ -262,4 +263,28 @@ fn save_all_writes_correct_bytes_to_disk() {
     let written = std::fs::read(&saved_paths[0]).unwrap();
 
     assert_eq!(written, expected_bytes);
+}
+
+#[test]
+fn save_all_without_output_dir_returns_no_output_dir_error() {
+    let engine = RecoveryEngine::new();
+    let extracted = vec![ExtractedFile {
+        filename: "recovered_0.jpg".to_string(),
+        kind: FileKind::Jpeg,
+        bytes: vec![0x01],
+    }];
+
+    let result = engine.save_all(&extracted);
+
+    assert!(matches!(result, Err(EngineError::NoOutputDir)));
+}
+
+#[test]
+fn scan_without_output_dir_succeeds() {
+    let mut source = Cursor::new(build_test_disk());
+    let engine = RecoveryEngine::new().with_chunk_size(512);
+
+    let carved_files = engine.scan(&mut source).unwrap();
+
+    assert_eq!(carved_files.len(), 3);
 }

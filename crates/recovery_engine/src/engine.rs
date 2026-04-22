@@ -39,20 +39,28 @@ pub struct ExtractedFile {
 /// let paths    = engine.save_all(&extracted)?;
 /// ```
 pub struct RecoveryEngine {
-    output_dir: PathBuf,
+    output_dir: Option<PathBuf>,
     chunk_size: usize,
     signatures: Vec<&'static Signature>,
 }
 
 impl RecoveryEngine {
-    /// Creates a new engine that saves files to `output_dir`. All supported
-    /// signatures (JPEG, PNG) are enabled by default.
-    pub fn new(output_dir: impl Into<PathBuf>) -> Self {
+    /// Creates a new engine with all supported signatures enabled.
+    ///
+    /// By default no output directory is set. Chain [`with_output_dir`] before
+    /// calling [`save_all`], or leave it unset for scan-only workflows.
+    pub fn new() -> Self {
         Self {
-            output_dir: output_dir.into(),
+            output_dir: None,
             chunk_size: DEFAULT_CHUNK_SIZE,
             signatures: SUPPORTED_SIGNATURES.iter().collect(),
         }
+    }
+
+    /// Sets (or replaces) the output directory used by [`save_all`].
+    pub fn with_output_dir(mut self, output_dir: impl Into<PathBuf>) -> Self {
+        self.output_dir = Some(output_dir.into());
+        self
     }
 
     /// Overrides the number of bytes read per iteration for both scanning and
@@ -139,12 +147,13 @@ impl RecoveryEngine {
     ///   created.
     /// - [`EngineError::Io`] if a file cannot be written.
     pub fn save_all(&self, extracted: &[ExtractedFile]) -> Result<Vec<PathBuf>, EngineError> {
-        self.ensure_output_dir()?;
+        let output_dir = self.output_dir.as_ref().ok_or(EngineError::NoOutputDir)?;
+        self.ensure_output_dir(output_dir)?;
 
         let mut saved_paths: Vec<PathBuf> = Vec::new();
 
         for extracted_file in extracted {
-            let output_path = self.output_dir.join(&extracted_file.filename);
+            let output_path = output_dir.join(&extracted_file.filename);
             fs::write(&output_path, &extracted_file.bytes)?;
             saved_paths.push(output_path);
         }
@@ -152,9 +161,9 @@ impl RecoveryEngine {
         Ok(saved_paths)
     }
 
-    fn ensure_output_dir(&self) -> Result<(), EngineError> {
-        fs::create_dir_all(&self.output_dir).map_err(|io_error| EngineError::InvalidOutputDir {
-            path: self.output_dir.display().to_string(),
+    fn ensure_output_dir(&self, output_dir: &PathBuf) -> Result<(), EngineError> {
+        fs::create_dir_all(output_dir).map_err(|io_error| EngineError::InvalidOutputDir {
+            path: output_dir.display().to_string(),
             reason: io_error.to_string(),
         })
     }

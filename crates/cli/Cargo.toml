@@ -8,3 +8,4 @@ anyhow.workspace = true
 clap.workspace = true
 
 file_carver = { path = "../file_carver" }
+recovery_engine = { path = "../recovery_engine" }
