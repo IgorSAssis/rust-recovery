@@ -15,4 +15,6 @@ mod matcher_tests;
 #[cfg(test)]
 mod scanner_tests;
 #[cfg(test)]
+mod signature_tests;
+#[cfg(test)]
 mod window_tests;

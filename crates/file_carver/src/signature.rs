@@ -4,6 +4,7 @@ use std::fmt;
 pub enum FileKind {
     Jpeg,
     Png,
+    Pdf,
 }
 
 impl FileKind {
@@ -11,6 +12,7 @@ impl FileKind {
         match self {
             FileKind::Jpeg => "JPEG",
             FileKind::Png => "PNG",
+            FileKind::Pdf => "PDF",
         }
     }
 
@@ -18,6 +20,7 @@ impl FileKind {
         match self {
             FileKind::Jpeg => "jpg",
             FileKind::Png => "png",
+            FileKind::Pdf => "pdf",
         }
     }
 }
@@ -46,4 +49,10 @@ pub const PNG_SIGNATURE: Signature = Signature {
     footer_pattern: &[0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82],
 };
 
-pub const SUPPORTED_SIGNATURES: &[Signature] = &[JPEG_SIGNATURE, PNG_SIGNATURE];
+pub const PDF_SIGNATURE: Signature = Signature {
+    kind: FileKind::Pdf,
+    header_pattern: &[0x25, 0x50, 0x44, 0x46],
+    footer_pattern: &[0x25, 0x25, 0x45, 0x4F, 0x46],
+};
+
+pub const SUPPORTED_SIGNATURES: &[Signature] = &[JPEG_SIGNATURE, PNG_SIGNATURE, PDF_SIGNATURE];
