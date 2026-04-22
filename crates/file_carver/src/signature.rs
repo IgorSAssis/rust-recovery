@@ -5,6 +5,7 @@ pub enum FileKind {
     Jpeg,
     Png,
     Pdf,
+    Zip,
 }
 
 impl FileKind {
@@ -13,6 +14,7 @@ impl FileKind {
             FileKind::Jpeg => "JPEG",
             FileKind::Png => "PNG",
             FileKind::Pdf => "PDF",
+            FileKind::Zip => "ZIP",
         }
     }
 
@@ -21,6 +23,7 @@ impl FileKind {
             FileKind::Jpeg => "jpg",
             FileKind::Png => "png",
             FileKind::Pdf => "pdf",
+            FileKind::Zip => "zip",
         }
     }
 }
@@ -55,4 +58,10 @@ pub const PDF_SIGNATURE: Signature = Signature {
     footer_pattern: &[0x25, 0x25, 0x45, 0x4F, 0x46],
 };
 
-pub const SUPPORTED_SIGNATURES: &[Signature] = &[JPEG_SIGNATURE, PNG_SIGNATURE, PDF_SIGNATURE];
+pub const ZIP_SIGNATURE: Signature = Signature {
+    kind: FileKind::Zip,
+    header_pattern: &[0x50, 0x4B, 0x03, 0x04],
+    footer_pattern: &[0x50, 0x4B, 0x05, 0x06],
+};
+
+pub const SUPPORTED_SIGNATURES: &[Signature] = &[JPEG_SIGNATURE, PNG_SIGNATURE, PDF_SIGNATURE, ZIP_SIGNATURE];

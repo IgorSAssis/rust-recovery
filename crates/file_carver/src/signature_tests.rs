@@ -1,5 +1,5 @@
 use super::signature::{
-    FileKind, JPEG_SIGNATURE, PDF_SIGNATURE, PNG_SIGNATURE, SUPPORTED_SIGNATURES,
+    FileKind, JPEG_SIGNATURE, PDF_SIGNATURE, PNG_SIGNATURE, SUPPORTED_SIGNATURES, ZIP_SIGNATURE,
 };
 
 // ── FileKind::name ────────────────────────────────────────────────────────────
@@ -110,6 +110,40 @@ fn pdf_signature_footer_spells_double_percent_eof() {
     assert_eq!(PDF_SIGNATURE.footer_pattern, b"%%EOF");
 }
 
+// ── ZIP_SIGNATURE ─────────────────────────────────────────────────────────────
+
+#[test]
+fn zip_signature_kind_is_zip() {
+    assert_eq!(ZIP_SIGNATURE.kind, FileKind::Zip);
+}
+
+#[test]
+fn zip_signature_header_is_pk_local_file_header() {
+    assert_eq!(ZIP_SIGNATURE.header_pattern, &[0x50, 0x4B, 0x03, 0x04]);
+}
+
+#[test]
+fn zip_signature_footer_is_end_of_central_directory() {
+    assert_eq!(ZIP_SIGNATURE.footer_pattern, &[0x50, 0x4B, 0x05, 0x06]);
+}
+
+// ── FileKind::Zip — name / extension / Display ────────────────────────────────
+
+#[test]
+fn zip_kind_name_is_zip() {
+    assert_eq!(FileKind::Zip.name(), "ZIP");
+}
+
+#[test]
+fn zip_kind_extension_is_zip() {
+    assert_eq!(FileKind::Zip.extension(), "zip");
+}
+
+#[test]
+fn zip_kind_display_matches_name() {
+    assert_eq!(FileKind::Zip.to_string(), FileKind::Zip.name());
+}
+
 // ── SUPPORTED_SIGNATURES ──────────────────────────────────────────────────────
 
 #[test]
@@ -128,4 +162,10 @@ fn supported_signatures_includes_png() {
 fn supported_signatures_includes_pdf() {
     let kinds: Vec<FileKind> = SUPPORTED_SIGNATURES.iter().map(|sig| sig.kind).collect();
     assert!(kinds.contains(&FileKind::Pdf));
+}
+
+#[test]
+fn supported_signatures_includes_zip() {
+    let kinds: Vec<FileKind> = SUPPORTED_SIGNATURES.iter().map(|sig| sig.kind).collect();
+    assert!(kinds.contains(&FileKind::Zip));
 }
