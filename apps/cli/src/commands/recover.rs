@@ -5,10 +5,10 @@ use anyhow::{Context, Result};
 use clap::Args;
 use file_carver::constants::DEFAULT_CHUNK_SIZE;
 use file_carver::signature::{FileKind, Signature, SUPPORTED_SIGNATURES};
-use indicatif::{ProgressBar, ProgressStyle};
 use recovery_engine::engine::RecoveryEngine;
 
 use super::Command;
+use crate::progress::{IndicatifReporter, ProgressReporter};
 
 #[derive(Args)]
 pub struct RecoverArgs {
@@ -35,11 +35,20 @@ pub struct RecoverArgs {
 
 pub struct RecoverCommand {
     args: RecoverArgs,
+    reporter: Box<dyn ProgressReporter>,
 }
 
 impl RecoverCommand {
     pub fn new(args: RecoverArgs) -> Self {
-        Self { args }
+        Self {
+            args,
+            reporter: Box::new(IndicatifReporter::new()),
+        }
+    }
+
+    pub fn with_reporter(mut self, reporter: Box<dyn ProgressReporter>) -> Self {
+        self.reporter = reporter;
+        self
     }
 
     fn resolve_signatures(&self) -> Vec<&'static Signature> {
@@ -54,7 +63,7 @@ impl RecoverCommand {
 }
 
 impl Command for RecoverCommand {
-    fn run(&self) -> Result<()> {
+    fn run(&mut self) -> Result<()> {
         let mut source = File::open(&self.args.source)
             .with_context(|| format!("Cannot open '{}'", self.args.source.display()))?;
 
@@ -91,15 +100,6 @@ impl Command for RecoverCommand {
         println!("Found {} file(s) to recover.", carved_files.len());
         println!();
 
-        let progress_bar = ProgressBar::new(carved_files.len() as u64);
-        progress_bar.set_style(
-            ProgressStyle::with_template(
-                "[{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} {msg}",
-            )
-            .unwrap()
-            .progress_chars("=>-"),
-        );
-
         let extracted_files = engine
             .extract_all(&mut source, &carved_files)
             .context("Extraction failed")?;
@@ -108,13 +108,22 @@ impl Command for RecoverCommand {
             .save_all(&extracted_files)
             .context("Failed to save files")?;
 
-        for (extracted_file, path) in extracted_files.iter().zip(saved_paths.iter()) {
-            progress_bar.set_message(format!("Saved {}", extracted_file.filename));
-            progress_bar.inc(1);
-            let _ = path;
+        debug_assert_eq!(
+            extracted_files.len(),
+            saved_paths.len(),
+            "extract_all and save_all must return the same number of entries"
+        );
+
+        self.reporter.set_length(extracted_files.len() as u64);
+
+        for (extracted_file, _path) in extracted_files.iter().zip(saved_paths.iter()) {
+            self.reporter
+                .set_message(&format!("Saved {}", extracted_file.filename));
+            self.reporter.inc(1);
         }
 
-        progress_bar.finish_with_message("Done");
+        self.reporter.finish_with_message("Done");
+
         println!();
         println!(
             "Recovered {} file(s) to '{}':",
@@ -133,3 +142,4 @@ impl Command for RecoverCommand {
         Ok(())
     }
 }
+

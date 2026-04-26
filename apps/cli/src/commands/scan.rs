@@ -33,7 +33,7 @@ impl ScanCommand {
 }
 
 impl Command for ScanCommand {
-    fn run(&self) -> Result<()> {
+    fn run(&mut self) -> Result<()> {
         let mut source = File::open(&self.args.source)
             .with_context(|| format!("Cannot open '{}'", self.args.source.display()))?;
 

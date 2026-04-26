@@ -4,5 +4,5 @@ pub mod recover;
 pub mod scan;
 
 pub trait Command {
-    fn run(&self) -> Result<()>;
+    fn run(&mut self) -> Result<()>;
 }
