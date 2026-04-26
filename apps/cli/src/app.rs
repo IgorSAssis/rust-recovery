@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
 
+use crate::commands::hexdump::HexdumpArgs;
 use crate::commands::recover::RecoverArgs;
 use crate::commands::scan::ScanArgs;
 
@@ -20,6 +21,9 @@ pub enum Commands {
 
     #[command(about = "Scan and extract recoverable files to an output directory")]
     Recover(RecoverArgs),
+
+    #[command(about = "Display a raw hex dump of bytes at a given offset")]
+    Hexdump(HexdumpArgs),
 }
 
 #[cfg(test)]

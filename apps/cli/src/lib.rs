@@ -1,4 +1,4 @@
 pub mod app;
 pub mod commands;
-pub mod hexdump;
+pub mod constants;
 pub mod progress;
