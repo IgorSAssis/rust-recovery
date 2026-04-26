@@ -1,4 +1,5 @@
 use std::fmt;
+use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum FileKind {
@@ -31,6 +32,29 @@ impl FileKind {
 impl fmt::Display for FileKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.name())
+    }
+}
+
+impl FromStr for FileKind {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "jpg" | "jpeg" => Ok(FileKind::Jpeg),
+            "png" => Ok(FileKind::Png),
+            "pdf" => Ok(FileKind::Pdf),
+            "zip" => Ok(FileKind::Zip),
+            other => {
+                let valid_types: Vec<&str> = SUPPORTED_SIGNATURES
+                    .iter()
+                    .map(|sig| sig.kind.extension())
+                    .collect();
+                Err(format!(
+                    "Unknown file type: '{other}'. Valid types: {}",
+                    valid_types.join(", ")
+                ))
+            }
+        }
     }
 }
 

@@ -6,7 +6,7 @@ use file_carver::carved_file::CarvedFile;
 use file_carver::constants::DEFAULT_CHUNK_SIZE;
 use file_carver::extractor::Extractor;
 use file_carver::scanner::Scanner;
-use file_carver::signature::{FileKind, Signature, SUPPORTED_SIGNATURES};
+use file_carver::signature::{FileKind, Signature};
 
 use crate::error::EngineError;
 
@@ -44,17 +44,23 @@ pub struct RecoveryEngine {
     signatures: Vec<&'static Signature>,
 }
 
-impl RecoveryEngine {
-    /// Creates a new engine with all supported signatures enabled.
-    ///
-    /// By default no output directory is set. Chain [`with_output_dir`] before
-    /// calling [`save_all`], or leave it unset for scan-only workflows.
-    pub fn new() -> Self {
+impl Default for RecoveryEngine {
+    fn default() -> Self {
         Self {
             output_dir: None,
             chunk_size: DEFAULT_CHUNK_SIZE,
-            signatures: SUPPORTED_SIGNATURES.iter().collect(),
+            signatures: Vec::new(),
         }
+    }
+}
+
+impl RecoveryEngine {
+    /// Creates a new engine with no signatures configured.
+    ///
+    /// Call [`with_signatures`] to specify which file types to detect before
+    /// calling [`scan`].
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Sets (or replaces) the output directory used by [`save_all`].
@@ -70,10 +76,12 @@ impl RecoveryEngine {
         self
     }
 
-    /// Adds an extra signature to detect during scanning. The custom signature
-    /// is appended to the default set.
-    pub fn add_signature(mut self, signature: &'static Signature) -> Self {
-        self.signatures.push(signature);
+    /// Replaces the current signature set with the provided list.
+    ///
+    /// Pass a subset of [`SUPPORTED_SIGNATURES`] to restrict which file types
+    /// are detected during [`scan`].
+    pub fn with_signatures(mut self, signatures: Vec<&'static Signature>) -> Self {
+        self.signatures = signatures;
         self
     }
 
@@ -168,4 +176,3 @@ impl RecoveryEngine {
         })
     }
 }
-

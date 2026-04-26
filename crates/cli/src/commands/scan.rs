@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use clap::Args;
 use file_carver::constants::DEFAULT_CHUNK_SIZE;
+use file_carver::signature::SUPPORTED_SIGNATURES;
 use recovery_engine::engine::RecoveryEngine;
 
 use super::Command;
@@ -46,7 +47,9 @@ impl Command for ScanCommand {
         );
         println!();
 
-        let engine = RecoveryEngine::new().with_chunk_size(self.args.chunk_size);
+        let engine = RecoveryEngine::new()
+            .with_signatures(SUPPORTED_SIGNATURES.iter().collect())
+            .with_chunk_size(self.args.chunk_size);
 
         let carved_files = engine.scan(&mut source).context("Scan failed")?;
 

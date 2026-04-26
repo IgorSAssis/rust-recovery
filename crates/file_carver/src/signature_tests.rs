@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use super::signature::{
     FileKind, JPEG_SIGNATURE, PDF_SIGNATURE, PNG_SIGNATURE, SUPPORTED_SIGNATURES, ZIP_SIGNATURE,
 };
@@ -168,4 +170,29 @@ fn supported_signatures_includes_pdf() {
 fn supported_signatures_includes_zip() {
     let kinds: Vec<FileKind> = SUPPORTED_SIGNATURES.iter().map(|sig| sig.kind).collect();
     assert!(kinds.contains(&FileKind::Zip));
+}
+
+// ── FileKind::from_str ────────────────────────────────────────────────────────
+
+#[test]
+fn file_kind_from_str_parses_all_supported_extensions() {
+    assert_eq!(FileKind::from_str("jpg").unwrap(), FileKind::Jpeg);
+    assert_eq!(FileKind::from_str("jpeg").unwrap(), FileKind::Jpeg);
+    assert_eq!(FileKind::from_str("JPG").unwrap(), FileKind::Jpeg);
+    assert_eq!(FileKind::from_str("png").unwrap(), FileKind::Png);
+    assert_eq!(FileKind::from_str("PNG").unwrap(), FileKind::Png);
+    assert_eq!(FileKind::from_str("pdf").unwrap(), FileKind::Pdf);
+    assert_eq!(FileKind::from_str("PDF").unwrap(), FileKind::Pdf);
+    assert_eq!(FileKind::from_str("zip").unwrap(), FileKind::Zip);
+    assert_eq!(FileKind::from_str("ZIP").unwrap(), FileKind::Zip);
+}
+
+#[test]
+fn file_kind_from_str_unknown_extension_error_lists_all_valid_types() {
+    let error = FileKind::from_str("mp3").unwrap_err();
+
+    assert!(error.contains(FileKind::Jpeg.extension()));
+    assert!(error.contains(FileKind::Png.extension()));
+    assert!(error.contains(FileKind::Pdf.extension()));
+    assert!(error.contains(FileKind::Zip.extension()));
 }

@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
 
+use crate::commands::recover::RecoverArgs;
 use crate::commands::scan::ScanArgs;
 
 #[derive(Parser)]
@@ -16,4 +17,7 @@ pub struct Cli {
 pub enum Commands {
     #[command(about = "Scan a source and list recoverable files")]
     Scan(ScanArgs),
+
+    #[command(about = "Scan and extract recoverable files to an output directory")]
+    Recover(RecoverArgs),
 }
