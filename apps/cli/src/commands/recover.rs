@@ -143,3 +143,7 @@ impl Command for RecoverCommand {
     }
 }
 
+#[cfg(test)]
+#[path = "recover_tests.rs"]
+mod recover_tests;
+

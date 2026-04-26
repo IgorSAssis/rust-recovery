@@ -21,3 +21,7 @@ pub enum Commands {
     #[command(about = "Scan and extract recoverable files to an output directory")]
     Recover(RecoverArgs),
 }
+
+#[cfg(test)]
+#[path = "app_tests.rs"]
+mod app_tests;
