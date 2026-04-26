@@ -1,19 +1,6 @@
-[package]
-name = "rust-recovery"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-anyhow = "1.0.102"
-thiserror = "2.0.18"
-clap = { workspace = true }
-file_carver = { path = "./crates/file_carver" }
-recovery_engine = { path = "./crates/recovery_engine" }
-cli = { path = "./crates/cli" }
-
 [workspace]
 members = [
-  "crates/cli",
+  "apps/cli",
   "crates/file_carver",
   "crates/recovery_engine",
 ]
