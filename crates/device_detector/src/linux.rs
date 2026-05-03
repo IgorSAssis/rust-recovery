@@ -1,6 +1,8 @@
 use std::fs;
 use std::path::Path;
 
+use tracing::{debug, info, instrument};
+
 use crate::constants::{BYTES_PER_BLOCK, DEV_PATH_PREFIX, SYS_BLOCK_PATH};
 use crate::device::StorageDevice;
 use crate::error::DeviceDetectorError;
@@ -18,6 +20,7 @@ impl LinuxDeviceDetector {
     /// Reads from `/sys/block/` and filters virtual devices (e.g. zram, loop).
     /// Only whole disks are returned — partitions are excluded because
     /// `/sys/block/` only exposes top-level block devices.
+    #[instrument(name = "device_detector.list", skip(self))]
     pub fn list_devices(&self) -> Result<Vec<StorageDevice>, DeviceDetectorError> {
         let entries = fs::read_dir(SYS_BLOCK_PATH).map_err(|e| DeviceDetectorError::Io {
             path: SYS_BLOCK_PATH.to_string(),
@@ -35,6 +38,7 @@ impl LinuxDeviceDetector {
             let sys_path = entry.path();
 
             if !Self::is_physical_device(&sys_path) {
+                debug!(path = %sys_path.display(), "skipping virtual device");
                 continue;
             }
 
@@ -54,15 +58,26 @@ impl LinuxDeviceDetector {
                 dev_name.clone()
             };
 
-            devices.push(StorageDevice {
+            let device = StorageDevice {
                 path: Path::new(DEV_PATH_PREFIX).join(&dev_name),
                 name,
                 size_bytes,
                 removable,
-            });
+            };
+
+            debug!(
+                dev = %dev_name,
+                path = %device.path.display(),
+                size_bytes,
+                removable,
+                "device detected"
+            );
+
+            devices.push(device);
         }
 
         devices.sort_by(|a, b| a.path.cmp(&b.path));
+        info!(count = devices.len(), "devices enumerated");
 
         Ok(devices)
     }

@@ -7,6 +7,7 @@ use file_carver::constants::DEFAULT_CHUNK_SIZE;
 use file_carver::extractor::Extractor;
 use file_carver::scanner::Scanner;
 use file_carver::signature::{FileKind, Signature};
+use tracing::{debug, info, instrument};
 
 use crate::error::EngineError;
 
@@ -92,6 +93,7 @@ impl RecoveryEngine {
     ///
     /// - [`EngineError::NoSignaturesConfigured`] if the signature list is empty.
     /// - [`EngineError::Carver`] on any scanning error.
+    #[instrument(name = "engine.scan", skip(self, source), fields(signatures = self.signatures.len(), chunk_size = self.chunk_size))]
     pub fn scan<R>(&self, source: &mut R) -> Result<Vec<CarvedFile>, EngineError>
     where
         R: Read + Seek,
@@ -100,12 +102,14 @@ impl RecoveryEngine {
             return Err(EngineError::NoSignaturesConfigured);
         }
 
+        info!("starting scan");
         let scanner = self.signatures.iter().fold(
             Scanner::new().with_chunk_size(self.chunk_size),
             |scanner, signature| scanner.add_signature(signature),
         );
 
         let carved_files = scanner.scan(source)?;
+        info!(files_found = carved_files.len(), "scan finished");
         Ok(carved_files)
     }
 
@@ -118,6 +122,7 @@ impl RecoveryEngine {
     /// # Errors
     ///
     /// - [`EngineError::Carver`] on any extraction error.
+    #[instrument(name = "engine.extract", skip(self, source, carved), fields(files = carved.len()))]
     pub fn extract_all<R>(
         &self,
         source: &mut R,
@@ -126,6 +131,7 @@ impl RecoveryEngine {
     where
         R: Read + Seek,
     {
+        info!("starting extraction");
         let extractor = Extractor::new().with_chunk_size(self.chunk_size);
         let mut extracted_files: Vec<ExtractedFile> = Vec::new();
 
@@ -135,6 +141,12 @@ impl RecoveryEngine {
 
             extractor.extract(source, carved_file, &mut bytes)?;
 
+            debug!(
+                filename,
+                kind = %carved_file.kind,
+                bytes = bytes.len(),
+                "file extracted"
+            );
             extracted_files.push(ExtractedFile {
                 filename,
                 kind: carved_file.kind,
@@ -142,6 +154,7 @@ impl RecoveryEngine {
             });
         }
 
+        info!(files_extracted = extracted_files.len(), "extraction complete");
         Ok(extracted_files)
     }
 
@@ -154,18 +167,22 @@ impl RecoveryEngine {
     /// - [`EngineError::InvalidOutputDir`] if the output directory cannot be
     ///   created.
     /// - [`EngineError::Io`] if a file cannot be written.
+    #[instrument(name = "engine.save", skip(self, extracted), fields(files = extracted.len()))]
     pub fn save_all(&self, extracted: &[ExtractedFile]) -> Result<Vec<PathBuf>, EngineError> {
         let output_dir = self.output_dir.as_ref().ok_or(EngineError::NoOutputDir)?;
         self.ensure_output_dir(output_dir)?;
+        info!(output_dir = %output_dir.display(), "saving files");
 
         let mut saved_paths: Vec<PathBuf> = Vec::new();
 
         for extracted_file in extracted {
             let output_path = output_dir.join(&extracted_file.filename);
             fs::write(&output_path, &extracted_file.bytes)?;
+            debug!(path = %output_path.display(), "file saved");
             saved_paths.push(output_path);
         }
 
+        info!(files_saved = saved_paths.len(), "all files saved");
         Ok(saved_paths)
     }
 

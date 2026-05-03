@@ -6,5 +6,6 @@ edition = "2024"
 [dependencies]
 anyhow.workspace = true
 thiserror.workspace = true
+tracing.workspace = true
 
 file_carver = { path = "../file_carver" }

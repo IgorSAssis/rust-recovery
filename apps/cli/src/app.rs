@@ -11,6 +11,10 @@ use crate::commands::scan::ScanArgs;
     about = "File recovery tool for corrupted or formatted storage devices"
 )]
 pub struct Cli {
+    /// Enable debug-level logging output.
+    #[arg(short, long, global = true)]
+    pub verbose: bool,
+
     #[command(subcommand)]
     pub command: Commands,
 }

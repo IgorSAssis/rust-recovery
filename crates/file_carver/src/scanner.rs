@@ -1,6 +1,8 @@
 use std::collections::{HashMap, HashSet};
 use std::io::{self, Read, Seek, SeekFrom};
 
+use tracing::{debug, info, instrument};
+
 use crate::carved_file::CarvedFile;
 use crate::constants::DEFAULT_CHUNK_SIZE;
 use crate::matcher::PatternMatcher;
@@ -58,6 +60,7 @@ impl Scanner {
 
     /// Scans `source` from the beginning and returns all detected files,
     /// sorted by their starting offset.
+    #[instrument(name = "scanner.scan", skip(self, source), fields(signatures = self.signatures.len(), chunk_size = self.chunk_size))]
     pub fn scan<R: Read + Seek>(&self, source: &mut R) -> io::Result<Vec<CarvedFile>> {
         if self.signatures.is_empty() || self.chunk_size == 0 {
             return Ok(Vec::new());
@@ -70,21 +73,35 @@ impl Scanner {
 
         let mut carved: Vec<CarvedFile> = Vec::new();
         let mut pending: Vec<PendingFile> = Vec::new();
-        // Tracks absolute offsets of already-registered headers to prevent the
-        // overlap region from producing duplicates on the next iteration.
         let mut known_headers: HashSet<u64> = HashSet::new();
+        let mut chunk_index: u64 = 0;
 
         while let Some(window) = scan_window.next(source)? {
             let (still_open, closed) = self.close_pending(pending, &window);
             let (new_pending, found, new_headers) = self.find_new_headers(&window, &known_headers);
+
+            let headers_found = new_headers.len();
+            let footers_closed = closed.len() + found.len();
 
             carved.extend(closed);
             carved.extend(found);
             pending = still_open;
             pending.extend(new_pending);
             known_headers.extend(new_headers);
+
+            debug!(
+                chunk = chunk_index,
+                base_offset = window.absolute_offset(0),
+                bytes = window.bytes().len(),
+                headers_found,
+                footers_closed,
+                pending = pending.len(),
+                "chunk processed"
+            );
+            chunk_index += 1;
         }
 
+        info!(files_found = carved.len(), "scan complete");
         carved.sort_by_key(|carved_file| carved_file.offset_start);
         Ok(carved)
     }
@@ -116,11 +133,18 @@ impl Scanner {
 
             match footer_matcher.find_in(window.bytes(), search_from) {
                 Some(footer_local_idx) => {
+                    let offset_end =
+                        window.absolute_offset(footer_local_idx) + footer_pattern.len() as u64;
+                    debug!(
+                        kind = %pending_file.kind,
+                        offset_start = pending_file.start_abs,
+                        offset_end,
+                        "footer found, file closed"
+                    );
                     closed.push(CarvedFile {
                         kind: pending_file.kind,
                         offset_start: pending_file.start_abs,
-                        offset_end: window.absolute_offset(footer_local_idx)
-                            + footer_pattern.len() as u64,
+                        offset_end,
                     });
                     footer_cursors
                         .insert(pending_file.kind, footer_local_idx + footer_pattern.len());
@@ -168,16 +192,28 @@ impl Scanner {
                 let footer_search_from = header_local_idx + signature.header_pattern.len();
 
                 match footer_matcher.find_in(window.bytes(), footer_search_from) {
-                    Some(footer_local_idx) => found.push(CarvedFile {
-                        kind: signature.kind,
-                        offset_start: header_abs,
-                        offset_end: window.absolute_offset(footer_local_idx)
-                            + signature.footer_pattern.len() as u64,
-                    }),
-                    None => new_pending.push(PendingFile {
-                        kind: signature.kind,
-                        start_abs: header_abs,
-                    }),
+                    Some(footer_local_idx) => {
+                        let offset_end = window.absolute_offset(footer_local_idx)
+                            + signature.footer_pattern.len() as u64;
+                        debug!(
+                            kind = %signature.kind,
+                            offset_start = header_abs,
+                            offset_end,
+                            "file carved (header + footer in same window)"
+                        );
+                        found.push(CarvedFile {
+                            kind: signature.kind,
+                            offset_start: header_abs,
+                            offset_end,
+                        });
+                    }
+                    None => {
+                        debug!(kind = %signature.kind, offset = header_abs, "header found, awaiting footer");
+                        new_pending.push(PendingFile {
+                            kind: signature.kind,
+                            start_abs: header_abs,
+                        });
+                    }
                 }
             }
         }

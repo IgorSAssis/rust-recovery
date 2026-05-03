@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
+use tracing_subscriber::EnvFilter;
 
 use cli::app::{Cli, Commands};
 use cli::commands::Command;
@@ -17,6 +18,11 @@ fn main() {
 
 fn run() -> Result<()> {
     let cli = Cli::parse();
+
+    let log_level = if cli.verbose { "debug" } else { "warn" };
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::new(log_level))
+        .init();
 
     match cli.command {
         Commands::Scan(args) => ScanCommand::new(args).run(),
