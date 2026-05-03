@@ -7,6 +7,7 @@ use clap::Args;
 
 use super::Command;
 use crate::constants::DEFAULT_HEXDUMP_LENGTH;
+use crate::validation::SourceValidator;
 
 #[derive(Args)]
 pub struct HexdumpArgs {
@@ -52,6 +53,8 @@ impl HexdumpCommand {
 
 impl Command for HexdumpCommand {
     fn run(&mut self) -> Result<()> {
+        SourceValidator::validate(&self.args.source)?;
+
         let mut source = File::open(&self.args.source)
             .with_context(|| format!("Cannot open '{}'", self.args.source.display()))?;
 

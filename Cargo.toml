@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "apps/cli",
+  "crates/device_detector",
   "crates/file_carver",
   "crates/recovery_engine",
 ]

@@ -9,6 +9,7 @@ use recovery_engine::engine::RecoveryEngine;
 
 use super::Command;
 use crate::progress::{IndicatifReporter, ProgressReporter};
+use crate::validation::SourceValidator;
 
 #[derive(Args)]
 pub struct RecoverArgs {
@@ -64,6 +65,8 @@ impl RecoverCommand {
 
 impl Command for RecoverCommand {
     fn run(&mut self) -> Result<()> {
+        SourceValidator::validate(&self.args.source)?;
+
         let mut source = File::open(&self.args.source)
             .with_context(|| format!("Cannot open '{}'", self.args.source.display()))?;
 

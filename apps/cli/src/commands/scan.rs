@@ -8,6 +8,7 @@ use file_carver::signature::SUPPORTED_SIGNATURES;
 use recovery_engine::engine::RecoveryEngine;
 
 use super::Command;
+use crate::validation::SourceValidator;
 
 #[derive(Args)]
 pub struct ScanArgs {
@@ -34,6 +35,8 @@ impl ScanCommand {
 
 impl Command for ScanCommand {
     fn run(&mut self) -> Result<()> {
+        SourceValidator::validate(&self.args.source)?;
+
         let mut source = File::open(&self.args.source)
             .with_context(|| format!("Cannot open '{}'", self.args.source.display()))?;
 

@@ -1,5 +1,6 @@
 use anyhow::Result;
 
+pub mod devices;
 pub mod hexdump;
 pub mod recover;
 pub mod scan;

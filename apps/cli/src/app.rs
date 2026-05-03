@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
 
+use crate::commands::devices::DevicesArgs;
 use crate::commands::hexdump::HexdumpArgs;
 use crate::commands::recover::RecoverArgs;
 use crate::commands::scan::ScanArgs;
@@ -24,6 +25,9 @@ pub enum Commands {
 
     #[command(about = "Display a raw hex dump of bytes at a given offset")]
     Hexdump(HexdumpArgs),
+
+    #[command(about = "List physical storage devices available on this system")]
+    Devices(DevicesArgs),
 }
 
 #[cfg(test)]
