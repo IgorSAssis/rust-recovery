@@ -67,7 +67,7 @@ impl ScanWindow {
     /// containing the overlap from the previous call followed by the new bytes.
     ///
     /// Returns `Ok(None)` when the source is exhausted (EOF).
-    pub fn next<R: Read>(&mut self, source: &mut R) -> io::Result<Option<WindowSlice>> {
+    pub fn next<R: Read + ?Sized>(&mut self, source: &mut R) -> io::Result<Option<WindowSlice>> {
         let bytes_read = source.read(&mut self.chunk_buf)?;
 
         if bytes_read == 0 {

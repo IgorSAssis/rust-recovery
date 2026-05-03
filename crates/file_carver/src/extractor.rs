@@ -58,7 +58,7 @@ impl Extractor {
         dest: &mut W,
     ) -> Result<u64, CarverError>
     where
-        R: Read + Seek,
+        R: Read + Seek + ?Sized,
         W: Write,
     {
         Self::validate_range(carved)?;

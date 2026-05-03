@@ -6,43 +6,38 @@ use file_carver::carved_file::CarvedFile;
 use file_carver::constants::DEFAULT_CHUNK_SIZE;
 use file_carver::extractor::Extractor;
 use file_carver::scanner::Scanner;
-use file_carver::signature::{FileKind, Signature};
+use file_carver::signature::Signature;
 use tracing::{debug, info, instrument};
 
 use crate::error::EngineError;
-
-/// An in-memory representation of a file extracted from a disk source.
-///
-/// Produced by [`RecoveryEngine::extract_all`] and consumed by
-/// [`RecoveryEngine::save_all`].
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ExtractedFile {
-    /// Filename to use when saving, e.g. `recovered_0.jpg`.
-    pub filename: String,
-    pub kind: FileKind,
-    pub bytes: Vec<u8>,
-}
+use crate::strategies::{FileCarverStrategy, RecoveryStrategy};
+use crate::types::{ExtractedFile, ReadSeek};
 
 /// Orchestrates scanning and extraction of carved files from any byte source.
 ///
-/// [`scan`] and [`extract_all`] are generic over `R: Read + Seek`, accepting
-/// both `File` and `Cursor<Vec<u8>>` — making them straightforward to
-/// unit-test without a real disk or filesystem.
+/// Supports two usage styles:
 ///
-/// # Typical workflow
-///
+/// **Two-step (fine-grained control):**
 /// ```ignore
-/// let mut source = File::open("/dev/sdb")?;
-/// let engine = RecoveryEngine::new("/tmp/recovered");
-///
-/// let carved   = engine.scan(&mut source)?;
+/// let carved    = engine.scan(&mut source)?;
 /// let extracted = engine.extract_all(&mut source, &carved)?;
-/// let paths    = engine.save_all(&extracted)?;
+/// let paths     = engine.save_all(&extracted)?;
+/// ```
+///
+/// **One-step via strategy (recommended for new code):**
+/// ```ignore
+/// let engine = RecoveryEngine::new()
+///     .with_output_dir("/tmp/out")
+///     .with_strategy(Box::new(Fat32Strategy::new()));
+///
+/// let extracted = engine.recover(&mut source)?;
+/// let paths     = engine.save_all(&extracted)?;
 /// ```
 pub struct RecoveryEngine {
     output_dir: Option<PathBuf>,
     chunk_size: usize,
     signatures: Vec<&'static Signature>,
+    strategy: Option<Box<dyn RecoveryStrategy>>,
 }
 
 impl Default for RecoveryEngine {
@@ -51,6 +46,7 @@ impl Default for RecoveryEngine {
             output_dir: None,
             chunk_size: DEFAULT_CHUNK_SIZE,
             signatures: Vec::new(),
+            strategy: None,
         }
     }
 }
@@ -84,6 +80,40 @@ impl RecoveryEngine {
     pub fn with_signatures(mut self, signatures: Vec<&'static Signature>) -> Self {
         self.signatures = signatures;
         self
+    }
+
+    /// Sets a custom [`RecoveryStrategy`] used by [`recover`].
+    ///
+    /// When a strategy is set, [`recover`] delegates entirely to it.
+    /// When no strategy is set, [`recover`] falls back to a
+    /// [`FileCarverStrategy`] configured with the engine's `signatures` and
+    /// `chunk_size`.
+    pub fn with_strategy(mut self, strategy: Box<dyn RecoveryStrategy>) -> Self {
+        self.strategy = Some(strategy);
+        self
+    }
+
+    /// Recovers files from `source` using the configured strategy and returns
+    /// them as in-memory [`ExtractedFile`] values.
+    ///
+    /// If no strategy was set via [`with_strategy`], a [`FileCarverStrategy`]
+    /// is used automatically with the engine's current `signatures` and
+    /// `chunk_size`.
+    ///
+    /// # Errors
+    ///
+    /// - [`EngineError::NoSignaturesConfigured`] if carver strategy is used
+    ///   without signatures.
+    /// - [`EngineError::Carver`] or [`EngineError::Filesystem`] depending on
+    ///   the active strategy.
+    pub fn recover<R: ReadSeek>(&self, source: &mut R) -> Result<Vec<ExtractedFile>, EngineError> {
+        match &self.strategy {
+            Some(strategy) => strategy.recover(source),
+            None => FileCarverStrategy::new()
+                .with_chunk_size(self.chunk_size)
+                .with_signatures(self.signatures.clone())
+                .recover(source),
+        }
     }
 
     /// Scans `source` from the beginning and returns all detected files,

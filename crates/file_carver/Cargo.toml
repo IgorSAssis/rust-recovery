@@ -3,6 +3,10 @@ name = "file_carver"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+parallel = ["dep:rayon"]
+
 [dependencies]
 thiserror.workspace = true
 tracing.workspace = true
+rayon = { workspace = true, optional = true }

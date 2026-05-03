@@ -2,10 +2,11 @@ use std::io::Cursor;
 
 use file_carver::carved_file::CarvedFile;
 use file_carver::signature::{FileKind, JPEG_SIGNATURE, PNG_SIGNATURE};
-
-use super::engine::{ExtractedFile, RecoveryEngine};
-use super::error::EngineError;
 use file_carver::signature::SUPPORTED_SIGNATURES;
+
+use super::engine::RecoveryEngine;
+use super::error::EngineError;
+use super::types::ExtractedFile;
 
 // ── in-memory disk builder ────────────────────────────────────────────────────
 

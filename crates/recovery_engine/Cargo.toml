@@ -8,4 +8,5 @@ anyhow.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 
-file_carver = { path = "../file_carver" }
+file_carver = { path = "../file_carver", features = ["parallel"] }
+byteorder.workspace = true

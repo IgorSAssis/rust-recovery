@@ -3,6 +3,9 @@ use std::io::{self, Read, Seek, SeekFrom};
 
 use tracing::{debug, info, instrument};
 
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
 use crate::carved_file::CarvedFile;
 use crate::constants::DEFAULT_CHUNK_SIZE;
 use crate::matcher::PatternMatcher;
@@ -61,7 +64,7 @@ impl Scanner {
     /// Scans `source` from the beginning and returns all detected files,
     /// sorted by their starting offset.
     #[instrument(name = "scanner.scan", skip(self, source), fields(signatures = self.signatures.len(), chunk_size = self.chunk_size))]
-    pub fn scan<R: Read + Seek>(&self, source: &mut R) -> io::Result<Vec<CarvedFile>> {
+    pub fn scan<R: Read + Seek + ?Sized>(&self, source: &mut R) -> io::Result<Vec<CarvedFile>> {
         if self.signatures.is_empty() || self.chunk_size == 0 {
             return Ok(Vec::new());
         }
@@ -164,61 +167,97 @@ impl Scanner {
     /// - `found`: files whose header and footer were both found in this window.
     /// - `new_headers`: absolute offsets of all headers discovered in this window,
     ///   to be merged into the caller's deduplication set.
+    ///
+    /// When compiled with the `parallel` feature, each signature is searched
+    /// concurrently using `rayon`. The window bytes are shared read-only across
+    /// all threads, so no synchronisation is needed.
     fn find_new_headers(
         &self,
         window: &WindowSlice,
         known_headers: &HashSet<u64>,
     ) -> (Vec<PendingFile>, Vec<CarvedFile>, Vec<u64>) {
+        #[cfg(feature = "parallel")]
+        let iter = self.signatures.par_iter();
+        #[cfg(not(feature = "parallel"))]
+        let iter = self.signatures.iter();
+
+        let per_signature: Vec<(Vec<PendingFile>, Vec<CarvedFile>, Vec<u64>)> = iter
+            .map(|signature| {
+                Self::search_signature(signature, window, known_headers)
+            })
+            .collect();
+
         let mut new_pending: Vec<PendingFile> = Vec::new();
         let mut found: Vec<CarvedFile> = Vec::new();
         let mut new_headers: Vec<u64> = Vec::new();
 
-        for signature in &self.signatures {
-            if signature.header_pattern.is_empty() {
+        for (sig_pending, sig_found, sig_headers) in per_signature {
+            new_pending.extend(sig_pending);
+            found.extend(sig_found);
+            new_headers.extend(sig_headers);
+        }
+
+        (new_pending, found, new_headers)
+    }
+
+    /// Searches a single signature's header and footer within `window`.
+    ///
+    /// Extracted as a standalone method so it can be called from both the
+    /// sequential and parallel paths of [`find_new_headers`] without
+    /// duplicating logic.
+    fn search_signature(
+        signature: &Signature,
+        window: &WindowSlice,
+        known_headers: &HashSet<u64>,
+    ) -> (Vec<PendingFile>, Vec<CarvedFile>, Vec<u64>) {
+        let mut sig_pending: Vec<PendingFile> = Vec::new();
+        let mut sig_found: Vec<CarvedFile> = Vec::new();
+        let mut sig_headers: Vec<u64> = Vec::new();
+
+        if signature.header_pattern.is_empty() {
+            return (sig_pending, sig_found, sig_headers);
+        }
+
+        let header_matcher = PatternMatcher::new(signature.header_pattern);
+        let footer_matcher = PatternMatcher::new(signature.footer_pattern);
+
+        for header_local_idx in header_matcher.find_all_in(window.bytes()) {
+            let header_abs = window.absolute_offset(header_local_idx);
+
+            if known_headers.contains(&header_abs) {
                 continue;
             }
+            sig_headers.push(header_abs);
 
-            let header_matcher = PatternMatcher::new(signature.header_pattern);
-            let footer_matcher = PatternMatcher::new(signature.footer_pattern);
+            let footer_search_from = header_local_idx + signature.header_pattern.len();
 
-            for header_local_idx in header_matcher.find_all_in(window.bytes()) {
-                let header_abs = window.absolute_offset(header_local_idx);
-
-                if known_headers.contains(&header_abs) {
-                    continue;
+            match footer_matcher.find_in(window.bytes(), footer_search_from) {
+                Some(footer_local_idx) => {
+                    let offset_end = window.absolute_offset(footer_local_idx)
+                        + signature.footer_pattern.len() as u64;
+                    debug!(
+                        kind = %signature.kind,
+                        offset_start = header_abs,
+                        offset_end,
+                        "file carved (header + footer in same window)"
+                    );
+                    sig_found.push(CarvedFile {
+                        kind: signature.kind,
+                        offset_start: header_abs,
+                        offset_end,
+                    });
                 }
-                new_headers.push(header_abs);
-
-                let footer_search_from = header_local_idx + signature.header_pattern.len();
-
-                match footer_matcher.find_in(window.bytes(), footer_search_from) {
-                    Some(footer_local_idx) => {
-                        let offset_end = window.absolute_offset(footer_local_idx)
-                            + signature.footer_pattern.len() as u64;
-                        debug!(
-                            kind = %signature.kind,
-                            offset_start = header_abs,
-                            offset_end,
-                            "file carved (header + footer in same window)"
-                        );
-                        found.push(CarvedFile {
-                            kind: signature.kind,
-                            offset_start: header_abs,
-                            offset_end,
-                        });
-                    }
-                    None => {
-                        debug!(kind = %signature.kind, offset = header_abs, "header found, awaiting footer");
-                        new_pending.push(PendingFile {
-                            kind: signature.kind,
-                            start_abs: header_abs,
-                        });
-                    }
+                None => {
+                    debug!(kind = %signature.kind, offset = header_abs, "header found, awaiting footer");
+                    sig_pending.push(PendingFile {
+                        kind: signature.kind,
+                        start_abs: header_abs,
+                    });
                 }
             }
         }
 
-        (new_pending, found, new_headers)
+        (sig_pending, sig_found, sig_headers)
     }
 
     /// Computes the minimum overlap needed to ensure no pattern spans two

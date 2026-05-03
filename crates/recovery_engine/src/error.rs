@@ -18,4 +18,7 @@ pub enum EngineError {
 
     #[error("save_all requires an output directory — use RecoveryEngine::new() instead of scan_only()")]
     NoOutputDir,
+
+    #[error("Invalid filesystem: {reason}")]
+    InvalidFilesystem { reason: String },
 }
