@@ -14,3 +14,4 @@ tracing-subscriber.workspace = true
 
 file_carver = { path = "../../crates/file_carver", features = ["parallel"] }
 recovery_engine = { path = "../../crates/recovery_engine" }
+rfd = "0.14"
