@@ -170,9 +170,9 @@ fn extract_all_returns_files_with_correct_kinds() {
     let mut source = Cursor::new(disk);
     let extracted = engine.extract_all(&mut source, &carved_files).unwrap();
 
-    assert_eq!(extracted[0].kind, FileKind::Jpeg);
-    assert_eq!(extracted[1].kind, FileKind::Png);
-    assert_eq!(extracted[2].kind, FileKind::Jpeg);
+    assert_eq!(extracted[0].extension, "jpg");
+    assert_eq!(extracted[1].extension, "png");
+    assert_eq!(extracted[2].extension, "jpg");
 }
 
 #[test]
@@ -289,12 +289,12 @@ fn save_all_creates_output_directory_and_files() {
     let extracted = vec![
         ExtractedFile {
             filename: "recovered_0.jpg".to_string(),
-            kind: FileKind::Jpeg,
+            extension: "jpg".to_string(),
             bytes: JPEG_SIGNATURE.header_pattern.to_vec(),
         },
         ExtractedFile {
             filename: "recovered_1.png".to_string(),
-            kind: FileKind::Png,
+            extension: "png".to_string(),
             bytes: PNG_SIGNATURE.header_pattern.to_vec(),
         },
     ];
@@ -314,7 +314,7 @@ fn save_all_writes_correct_bytes_to_disk() {
     let expected_bytes = vec![0x01, 0x02, 0x03, 0x04];
     let extracted = vec![ExtractedFile {
         filename: "recovered_0.jpg".to_string(),
-        kind: FileKind::Jpeg,
+        extension: "jpg".to_string(),
         bytes: expected_bytes.clone(),
     }];
 
@@ -329,7 +329,7 @@ fn save_all_without_output_dir_returns_no_output_dir_error() {
     let engine = RecoveryEngine::new();
     let extracted = vec![ExtractedFile {
         filename: "recovered_0.jpg".to_string(),
-        kind: FileKind::Jpeg,
+        extension: "jpg".to_string(),
         bytes: vec![0x01],
     }];
 

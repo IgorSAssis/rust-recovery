@@ -80,13 +80,14 @@ impl RecoveryStrategy for FileCarverStrategy {
         let mut extracted: Vec<ExtractedFile> = Vec::new();
 
         for (i, carved) in carved_files.iter().enumerate() {
-            let filename = format!("recovered_{}.{}", i, carved.kind.extension());
+            let extension = carved.kind.extension().to_string();
+            let filename = format!("recovered_{}.{}", i, extension);
             let mut bytes: Vec<u8> = Vec::new();
             extractor.extract(source, carved, &mut bytes)?;
             debug!(filename, bytes = bytes.len(), "file extracted");
             extracted.push(ExtractedFile {
                 filename,
-                kind: carved.kind,
+                extension,
                 bytes,
             });
         }

@@ -1,5 +1,3 @@
-use file_carver::signature::FileKind;
-
 /// A file extracted from a disk source, held in memory.
 ///
 /// Produced by [`crate::strategies::RecoveryStrategy::recover`] and consumed
@@ -8,7 +6,8 @@ use file_carver::signature::FileKind;
 pub struct ExtractedFile {
     /// Filename to use when saving, e.g. `recovered_0.jpg`.
     pub filename: String,
-    pub kind: FileKind,
+    /// Lowercase file extension without the leading dot, e.g. `"jpg"`, `"txt"`.
+    pub extension: String,
     pub bytes: Vec<u8>,
 }
 

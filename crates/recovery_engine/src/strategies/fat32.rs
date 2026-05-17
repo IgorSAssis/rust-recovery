@@ -1,9 +1,6 @@
 use std::io::{Read, Seek, SeekFrom};
-use std::str::FromStr;
 
 use tracing::{debug, info, instrument, warn};
-
-use file_carver::signature::FileKind;
 
 use crate::error::EngineError;
 use crate::filesystems::fat32::{DeletedEntry, Fat32BootSector, list_deleted_entries};
@@ -31,11 +28,17 @@ use super::RecoveryStrategy;
 /// reading `ceil(file_size / cluster_size)` clusters in sequence from
 /// `first_cluster` is a reliable heuristic for recently deleted files.
 ///
+/// ## Any file type is recoverable
+///
+/// Because the original filename (including extension) is preserved in the
+/// directory entry until the space is reused, this strategy can recover any
+/// file type — `.txt`, `.docx`, `.jpg`, etc. — without requiring a binary
+/// signature.
+///
 /// ## Limitations
 ///
 /// - Only searches the **root directory** (subdirectory traversal is T7.x+).
-/// - Can only recover files whose 8.3 extension maps to a known [`FileKind`]
-///   (JPEG, PNG, PDF, ZIP).  Unknown extensions are skipped with a warning.
+/// - Skips entries with no extension (e.g. bare names like `README`).
 /// - Assumes cluster data has not been overwritten since deletion.
 pub struct Fat32Strategy;
 
@@ -73,11 +76,11 @@ impl RecoveryStrategy for Fat32Strategy {
 
         let mut extracted = Vec::new();
 
-        for (i, entry) in deleted.iter().enumerate() {
-            let kind = match kind_from_entry(entry) {
-                Some(k) => k,
+        for entry in &deleted {
+            let extension = match extension_from_entry(entry) {
+                Some(ext) => ext,
                 None => {
-                    warn!(name = entry.name, "unknown extension — skipping");
+                    warn!(name = entry.name, "no extension — skipping");
                     continue;
                 }
             };
@@ -92,12 +95,17 @@ impl RecoveryStrategy for Fat32Strategy {
             }
 
             let bytes = read_contiguous(source, &boot, entry.first_cluster, entry.file_size)?;
-            let filename = format!("recovered_fat32_{}.{}", i, kind.extension());
+
+            // Use the original 8.3 name from the directory entry.
+            // The first character is always '?' because FAT32 overwrites it
+            // with 0xE5 on deletion — replace with '_' (standard convention).
+            // Lowercase the result for filesystem compatibility.
+            let filename = entry.name.replacen('?', "_", 1).to_lowercase();
 
             debug!(filename, bytes = bytes.len(), "file recovered via FAT32");
             extracted.push(ExtractedFile {
                 filename,
-                kind,
+                extension,
                 bytes,
             });
         }
@@ -107,12 +115,15 @@ impl RecoveryStrategy for Fat32Strategy {
     }
 }
 
-/// Extracts the file extension from the 8.3 name and maps it to a
-/// [`FileKind`].  Returns `None` for unknown extensions.
-fn kind_from_entry(entry: &DeletedEntry) -> Option<FileKind> {
-    let ext = entry.name.rsplit_once('.').map(|(_, e)| e.to_lowercase())?;
-
-    FileKind::from_str(&ext).ok()
+/// Extracts the file extension from the 8.3 short name, lowercased.
+/// Returns `None` if the name has no extension (no dot or empty extension).
+fn extension_from_entry(entry: &DeletedEntry) -> Option<String> {
+    let (_, ext) = entry.name.rsplit_once('.')?;
+    let ext = ext.trim();
+    if ext.is_empty() {
+        return None;
+    }
+    Some(ext.to_lowercase())
 }
 
 /// Reads `file_size` bytes from the disk by walking clusters

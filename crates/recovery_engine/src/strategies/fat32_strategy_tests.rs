@@ -9,7 +9,7 @@ use super::Fat32Strategy;
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 /// Minimal JPEG: SOI marker + EOI marker (4 bytes).
-/// Enough for FileKind detection to round-trip; not a valid JPEG image.
+/// Not a valid JPEG image, but recognisable as JPEG-like data.
 const JPEG_MAGIC: &[u8] = &[0xFF, 0xD8, 0xFF, 0xE0, b'J', b'P', b'E', b'G'];
 
 /// Minimal PNG: 8-byte magic header.
@@ -37,7 +37,7 @@ fn recover_returns_single_deleted_jpeg() {
     let result = Fat32Strategy::new().recover(&mut cursor).unwrap();
 
     assert_eq!(result.len(), 1);
-    assert_eq!(result[0].filename, "recovered_fat32_0.jpg");
+    assert_eq!(result[0].filename, "_hoto.jpg");
     assert_eq!(&result[0].bytes, &JPEG_MAGIC[..8]);
 }
 
@@ -92,27 +92,35 @@ fn recover_returns_multiple_deleted_files() {
     let result = Fat32Strategy::new().recover(&mut cursor).unwrap();
 
     assert_eq!(result.len(), 2);
-    assert_eq!(result[0].filename, "recovered_fat32_0.jpg");
-    assert_eq!(result[1].filename, "recovered_fat32_1.png");
+    assert_eq!(result[0].filename, "_hoto.jpg");
+    assert_eq!(result[1].filename, "_mage.png");
 }
 
 // ── skipping rules ────────────────────────────────────────────────────────────
 
 #[test]
-fn recover_skips_entries_with_unknown_extensions() {
-    // ".DAT" is not in the known FileKind set
+fn recover_includes_files_with_any_extension() {
+    // FAT32 strategy recovers based on directory metadata, not signatures —
+    // so .DAT, .TXT, or any other extension must be recovered.
+    let mut dat_data = vec![0u8; 512];
+    dat_data[0] = 0xDE;
+    dat_data[1] = 0xAD;
+
     let mut entry = make_dir_entry(b"BINARY  ", b"DAT", 0x20, 3, 100);
     entry[0] = DELETED_MARKER;
 
     let img = build_image_with_data(
         &[(2, 0x0FFF_FFFF)],
         &[(entry, 2)],
-        &[],
+        &[(3, &dat_data)],
     );
 
     let mut cursor = Cursor::new(img);
     let result = Fat32Strategy::new().recover(&mut cursor).unwrap();
-    assert!(result.is_empty());
+
+    assert_eq!(result.len(), 1);
+    assert_eq!(result[0].extension, "dat");
+    assert_eq!(result[0].filename, "_inary.dat");
 }
 
 #[test]
@@ -134,7 +142,7 @@ fn recover_skips_live_files_and_returns_only_deleted() {
     let result = Fat32Strategy::new().recover(&mut cursor).unwrap();
 
     assert_eq!(result.len(), 1);
-    assert_eq!(result[0].filename, "recovered_fat32_0.png");
+    assert_eq!(result[0].filename, "_ead.png");
 }
 
 #[test]

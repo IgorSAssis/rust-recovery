@@ -166,7 +166,8 @@ impl RecoveryEngine {
         let mut extracted_files: Vec<ExtractedFile> = Vec::new();
 
         for (index, carved_file) in carved.iter().enumerate() {
-            let filename = format!("recovered_{}.{}", index, carved_file.kind.extension());
+            let extension = carved_file.kind.extension().to_string();
+            let filename = format!("recovered_{}.{}", index, extension);
             let mut bytes: Vec<u8> = Vec::new();
 
             extractor.extract(source, carved_file, &mut bytes)?;
@@ -179,7 +180,7 @@ impl RecoveryEngine {
             );
             extracted_files.push(ExtractedFile {
                 filename,
-                kind: carved_file.kind,
+                extension,
                 bytes,
             });
         }
