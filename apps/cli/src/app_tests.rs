@@ -2,6 +2,7 @@ use clap::Parser;
 use file_carver::signature::FileKind;
 
 use super::{Cli, Commands};
+use crate::commands::recover::RecoveryStrategyKind;
 
 #[test]
 fn scan_subcommand_parses_source_arg() {
@@ -103,4 +104,74 @@ fn recover_chunk_size_arg_is_parsed() {
         panic!("expected Recover variant");
     };
     assert_eq!(args.chunk_size, 4096);
+}
+
+#[test]
+fn recover_strategy_defaults_to_carver() {
+    let cli = Cli::try_parse_from([
+        "rustrecovery",
+        "recover",
+        "--source",
+        "disk.img",
+        "--output",
+        "out/",
+    ])
+    .unwrap();
+    let Commands::Recover(args) = cli.command else {
+        panic!("expected Recover variant");
+    };
+    assert_eq!(args.strategy, RecoveryStrategyKind::Carver);
+}
+
+#[test]
+fn recover_strategy_arg_parses_fat32() {
+    let cli = Cli::try_parse_from([
+        "rustrecovery",
+        "recover",
+        "--source",
+        "disk.img",
+        "--output",
+        "out/",
+        "--strategy",
+        "fat32",
+    ])
+    .unwrap();
+    let Commands::Recover(args) = cli.command else {
+        panic!("expected Recover variant");
+    };
+    assert_eq!(args.strategy, RecoveryStrategyKind::Fat32);
+}
+
+#[test]
+fn recover_strategy_arg_parses_carver_explicitly() {
+    let cli = Cli::try_parse_from([
+        "rustrecovery",
+        "recover",
+        "--source",
+        "disk.img",
+        "--output",
+        "out/",
+        "--strategy",
+        "carver",
+    ])
+    .unwrap();
+    let Commands::Recover(args) = cli.command else {
+        panic!("expected Recover variant");
+    };
+    assert_eq!(args.strategy, RecoveryStrategyKind::Carver);
+}
+
+#[test]
+fn recover_strategy_invalid_value_returns_error() {
+    let result = Cli::try_parse_from([
+        "rustrecovery",
+        "recover",
+        "--source",
+        "disk.img",
+        "--output",
+        "out/",
+        "--strategy",
+        "ntfs",
+    ]);
+    assert!(result.is_err());
 }

@@ -58,7 +58,7 @@ impl Fat32BootSector {
     /// fields.  Returns [`EngineError::InvalidFilesystem`] if the bytes do not
     /// look like a valid FAT32 volume (e.g. `bytes_per_sector` is zero, or
     /// FAT32-specific fields are absent).
-    pub fn parse<R: Read + Seek>(source: &mut R) -> Result<Self, EngineError> {
+    pub fn parse<R: Read + Seek + ?Sized>(source: &mut R) -> Result<Self, EngineError> {
         source.seek(SeekFrom::Start(0))?;
 
         let mut raw = [0u8; 512];

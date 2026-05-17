@@ -2,14 +2,25 @@ use std::fs::File;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use clap::Args;
+use clap::{Args, ValueEnum};
 use file_carver::constants::DEFAULT_CHUNK_SIZE;
-use file_carver::signature::{FileKind, Signature, SUPPORTED_SIGNATURES};
+use file_carver::signature::{FileKind, SUPPORTED_SIGNATURES, Signature};
 use recovery_engine::engine::RecoveryEngine;
+use recovery_engine::strategies::Fat32Strategy;
 
 use super::Command;
 use crate::progress::{IndicatifReporter, ProgressReporter};
 use crate::validation::SourceValidator;
+
+/// Recovery strategy to use when scanning a device.
+#[derive(ValueEnum, Clone, Debug, PartialEq)]
+pub enum RecoveryStrategyKind {
+    /// Signature-based file carver — works on any device regardless of filesystem
+    Carver,
+    /// FAT32 filesystem-aware recovery — use on FAT32-formatted devices for more
+    /// accurate filename and size information
+    Fat32,
+}
 
 #[derive(Args)]
 pub struct RecoverArgs {
@@ -32,6 +43,14 @@ pub struct RecoverArgs {
         help = "Number of bytes read per iteration (tune for memory usage)"
     )]
     pub chunk_size: usize,
+
+    #[arg(
+        long,
+        value_enum,
+        default_value = "carver",
+        help = "Recovery strategy: 'carver' (signature-based, any device) or 'fat32' (filesystem-aware)"
+    )]
+    pub strategy: RecoveryStrategyKind,
 }
 
 pub struct RecoverCommand {
@@ -71,6 +90,33 @@ impl Command for RecoverCommand {
             .with_context(|| format!("Cannot open '{}'", self.args.source.display()))?;
 
         let file_size = source.metadata()?.len();
+
+        println!("RustRecover — recover");
+        println!(
+            "Source:  {} ({} bytes)",
+            self.args.source.display(),
+            file_size
+        );
+        println!("Output:  {}", self.args.output.display());
+        println!("Strategy: {}", self.strategy_label());
+        println!();
+
+        match self.args.strategy {
+            RecoveryStrategyKind::Carver => self.run_carver(&mut source),
+            RecoveryStrategyKind::Fat32 => self.run_fat32(&mut source),
+        }
+    }
+}
+
+impl RecoverCommand {
+    fn strategy_label(&self) -> &str {
+        match self.args.strategy {
+            RecoveryStrategyKind::Carver => "carver (signature-based)",
+            RecoveryStrategyKind::Fat32 => "fat32 (filesystem-aware)",
+        }
+    }
+
+    fn run_carver(&mut self, source: &mut File) -> Result<()> {
         let type_filter = match &self.args.types {
             None => "all types".to_string(),
             Some(kinds) => kinds
@@ -80,9 +126,6 @@ impl Command for RecoverCommand {
                 .join(", "),
         };
 
-        println!("RustRecover — recover");
-        println!("Source:  {} ({} bytes)", self.args.source.display(), file_size);
-        println!("Output:  {}", self.args.output.display());
         println!("Filter:  {}", type_filter);
         println!();
         println!("Scanning...");
@@ -93,7 +136,7 @@ impl Command for RecoverCommand {
             .with_signatures(signatures)
             .with_chunk_size(self.args.chunk_size);
 
-        let carved_files = engine.scan(&mut source).context("Scan failed")?;
+        let carved_files = engine.scan(source).context("Scan failed")?;
 
         if carved_files.is_empty() {
             println!("No recoverable files found.");
@@ -104,11 +147,41 @@ impl Command for RecoverCommand {
         println!();
 
         let extracted_files = engine
-            .extract_all(&mut source, &carved_files)
+            .extract_all(source, &carved_files)
             .context("Extraction failed")?;
 
+        self.save_and_report(&engine, &extracted_files)
+    }
+
+    fn run_fat32(&mut self, source: &mut File) -> Result<()> {
+        println!("Scanning FAT32 directory entries...");
+
+        let engine = RecoveryEngine::new()
+            .with_output_dir(&self.args.output)
+            .with_strategy(Box::new(Fat32Strategy));
+
+        let extracted_files = engine
+            .recover(source)
+            .context("FAT32 recovery failed — is this a FAT32-formatted device?")?;
+
+        if extracted_files.is_empty() {
+            println!("No recoverable files found.");
+            return Ok(());
+        }
+
+        println!("Found {} deleted file(s).", extracted_files.len());
+        println!();
+
+        self.save_and_report(&engine, &extracted_files)
+    }
+
+    fn save_and_report(
+        &mut self,
+        engine: &RecoveryEngine,
+        extracted_files: &[recovery_engine::types::ExtractedFile],
+    ) -> Result<()> {
         let saved_paths = engine
-            .save_all(&extracted_files)
+            .save_all(extracted_files)
             .context("Failed to save files")?;
 
         debug_assert_eq!(
@@ -149,4 +222,3 @@ impl Command for RecoverCommand {
 #[cfg(test)]
 #[path = "recover_tests.rs"]
 mod recover_tests;
-
