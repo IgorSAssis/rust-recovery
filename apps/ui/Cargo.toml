@@ -1,0 +1,16 @@
+[package]
+name = "ui"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "rust-recovery-ui"
+path = "src/main.rs"
+
+[dependencies]
+iced.workspace = true
+tokio.workspace = true
+tracing-subscriber.workspace = true
+
+file_carver = { path = "../../crates/file_carver", features = ["parallel"] }
+recovery_engine = { path = "../../crates/recovery_engine" }

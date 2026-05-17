@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "apps/cli",
+  "apps/ui",
   "crates/device_detector",
   "crates/file_carver",
   "crates/recovery_engine",
@@ -16,3 +17,5 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 rayon = "1"
 byteorder = "1"
+iced = { version = "0.14", features = ["tokio"] }
+tokio = { version = "1", features = ["full"] }
