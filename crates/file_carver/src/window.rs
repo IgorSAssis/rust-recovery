@@ -20,9 +20,6 @@ impl WindowSlice {
 
     /// Converts a local index within this window into an absolute byte offset
     /// within the source device or image.
-    ///
-    /// Centralises the `base + local_idx` arithmetic that would otherwise be
-    /// repeated at every call site inside the scanner.
     pub fn absolute_offset(&self, local_idx: usize) -> u64 {
         self.base + local_idx as u64
     }
@@ -51,9 +48,8 @@ pub(crate) struct ScanWindow {
 impl ScanWindow {
     /// Creates a new `ScanWindow`.
     ///
-    /// - `overlap_size`: number of bytes carried forward from each chunk to
-    ///   bridge chunk boundaries.
-    /// - `chunk_size`: number of bytes read from the source per iteration.
+    /// `overlap_size` should be at least `max_pattern_length - 1` to ensure
+    /// no signature spans two windows undetected.
     pub fn new(overlap_size: usize, chunk_size: usize) -> Self {
         Self {
             overlap_size,

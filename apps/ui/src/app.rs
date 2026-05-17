@@ -157,7 +157,6 @@ impl App {
         }
     }
 
-    /// Renders the current screen.
     pub fn view(&self) -> Element<'_, Message> {
         match self.screen {
             Screen::Scan => views::scan::view(self),
@@ -182,7 +181,6 @@ pub fn format_size(bytes: usize) -> String {
     }
 }
 
-/// Needed so that `PathBuf` can appear in a Message clone.
 impl Clone for App {
     fn clone(&self) -> Self {
         Self {

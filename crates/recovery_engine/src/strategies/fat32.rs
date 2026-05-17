@@ -18,26 +18,12 @@ use super::RecoveryStrategy;
 /// 2. Walks the root directory cluster chain to find deleted entries
 ///    (those whose first name byte was overwritten with `0xE5`).
 /// 3. Reads each deleted file's data by assuming **contiguous cluster
-///    allocation** starting from the cluster stored in the directory entry.
-///
-/// ## Why contiguous reading instead of FAT chain traversal?
-///
-/// When a file is deleted, FAT32 marks its clusters as free by zeroing the
-/// FAT entries.  The cluster chain is therefore broken.  However, most
-/// filesystems allocate clusters contiguously for freshly written files, so
-/// reading `ceil(file_size / cluster_size)` clusters in sequence from
-/// `first_cluster` is a reliable heuristic for recently deleted files.
-///
-/// ## Any file type is recoverable
-///
-/// Because the original filename (including extension) is preserved in the
-/// directory entry until the space is reused, this strategy can recover any
-/// file type — `.txt`, `.docx`, `.jpg`, etc. — without requiring a binary
-/// signature.
+///    allocation** — FAT entries are zeroed on deletion, but clusters are
+///    usually allocated contiguously for recently written files, making this
+///    a reliable recovery heuristic.
 ///
 /// ## Limitations
 ///
-/// - Only searches the **root directory** (subdirectory traversal is T7.x+).
 /// - Skips entries with no extension (e.g. bare names like `README`).
 /// - Assumes cluster data has not been overwritten since deletion.
 pub struct Fat32Strategy;

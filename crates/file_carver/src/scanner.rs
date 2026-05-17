@@ -112,11 +112,7 @@ impl Scanner {
     // ── private helpers ───────────────────────────────────────────────────────
 
     /// Attempts to close each pending file by searching for its footer in the
-    /// current window.
-    ///
-    /// Returns a tuple `(still_open, closed)`:
-    /// - `still_open`: files whose footer was not found yet.
-    /// - `closed`: files that were successfully closed in this window.
+    /// current window. Returns `(still_open, closed)`.
     fn close_pending(
         &self,
         pending: Vec<PendingFile>,
@@ -159,18 +155,10 @@ impl Scanner {
         (still_open, closed)
     }
 
-    /// Scans the current window for new file headers across all registered
-    /// signatures.
+    /// Scans the current window for new file headers across all registered signatures.
     ///
-    /// Returns a tuple `(new_pending, found, new_headers)`:
-    /// - `new_pending`: headers whose footer was not found in this window yet.
-    /// - `found`: files whose header and footer were both found in this window.
-    /// - `new_headers`: absolute offsets of all headers discovered in this window,
-    ///   to be merged into the caller's deduplication set.
-    ///
-    /// When compiled with the `parallel` feature, each signature is searched
-    /// concurrently using `rayon`. The window bytes are shared read-only across
-    /// all threads, so no synchronisation is needed.
+    /// Returns `(new_pending, found, new_headers)`. When compiled with the `parallel`
+    /// feature, each signature is searched concurrently via `rayon`.
     fn find_new_headers(
         &self,
         window: &WindowSlice,
@@ -201,10 +189,6 @@ impl Scanner {
     }
 
     /// Searches a single signature's header and footer within `window`.
-    ///
-    /// Extracted as a standalone method so it can be called from both the
-    /// sequential and parallel paths of [`find_new_headers`] without
-    /// duplicating logic.
     fn search_signature(
         signature: &Signature,
         window: &WindowSlice,

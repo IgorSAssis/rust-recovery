@@ -35,10 +35,10 @@ pub async fn run_scan(
     .map_err(|e| e.to_string())?
 }
 
-/// Opens the OS native folder-picker dialog and returns the chosen path (or None if cancelled).
+/// Opens the OS native folder-picker dialog and returns the chosen path (or `None` if cancelled).
 ///
 /// Uses the synchronous `rfd::FileDialog` inside `spawn_blocking` to avoid
-/// async-runtime conflicts with the `ashpd` XDG-portal backend on Linux.
+/// runtime conflicts with the `ashpd` XDG-portal backend on Linux.
 pub async fn pick_folder() -> Option<PathBuf> {
     tokio::task::spawn_blocking(|| {
         rfd::FileDialog::new()
@@ -49,7 +49,6 @@ pub async fn pick_folder() -> Option<PathBuf> {
     .unwrap_or(None)
 }
 
-/// Writes selected files to `output_dir`, returning the number of files written.
 pub async fn run_export(
     files: Vec<ExtractedFile>,
     selected: HashSet<usize>,
@@ -73,4 +72,3 @@ pub async fn run_export(
     .await
     .map_err(|e| e.to_string())?
 }
-

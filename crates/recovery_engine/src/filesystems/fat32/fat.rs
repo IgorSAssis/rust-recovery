@@ -6,13 +6,8 @@ use crate::error::EngineError;
 
 use super::boot_sector::Fat32BootSector;
 
-/// Maximum cluster chain length before we abort and report a corrupted FAT.
-///
-/// A 2 TiB volume with 512-byte clusters (worst case) has ~4 billion clusters.
-/// 1 million is a safe ceiling for any realistic use: even a 1 GiB file with
-/// 512-byte clusters only has ~2 million clusters, and we'll abort at 1M.
-/// For production use this could be tuned per volume; here it prevents infinite
-/// loops caused by cycles in a corrupted FAT.
+/// Maximum cluster chain length before aborting — guards against infinite loops
+/// in corrupted FATs where entries form a cycle.
 const MAX_CHAIN_LENGTH: usize = 1_000_000;
 
 /// Minimum value of an End-of-Chain (EOC) FAT32 marker (after masking).

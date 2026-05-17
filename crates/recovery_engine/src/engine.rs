@@ -15,16 +15,6 @@ use crate::types::{ExtractedFile, ReadSeek};
 
 /// Orchestrates scanning and extraction of carved files from any byte source.
 ///
-/// Supports two usage styles:
-///
-/// **Two-step (fine-grained control):**
-/// ```ignore
-/// let carved    = engine.scan(&mut source)?;
-/// let extracted = engine.extract_all(&mut source, &carved)?;
-/// let paths     = engine.save_all(&extracted)?;
-/// ```
-///
-/// **One-step via strategy (recommended for new code):**
 /// ```ignore
 /// let engine = RecoveryEngine::new()
 ///     .with_output_dir("/tmp/out")
@@ -53,9 +43,6 @@ impl Default for RecoveryEngine {
 
 impl RecoveryEngine {
     /// Creates a new engine with no signatures configured.
-    ///
-    /// Call [`with_signatures`] to specify which file types to detect before
-    /// calling [`scan`].
     pub fn new() -> Self {
         Self::default()
     }
@@ -66,17 +53,13 @@ impl RecoveryEngine {
         self
     }
 
-    /// Overrides the number of bytes read per iteration for both scanning and
-    /// extraction. Useful for tuning memory usage on large devices.
+    /// Overrides the number of bytes read per iteration. Useful for tuning memory usage.
     pub fn with_chunk_size(mut self, chunk_size: usize) -> Self {
         self.chunk_size = chunk_size;
         self
     }
 
     /// Replaces the current signature set with the provided list.
-    ///
-    /// Pass a subset of [`SUPPORTED_SIGNATURES`] to restrict which file types
-    /// are detected during [`scan`].
     pub fn with_signatures(mut self, signatures: Vec<&'static Signature>) -> Self {
         self.signatures = signatures;
         self
@@ -84,21 +67,15 @@ impl RecoveryEngine {
 
     /// Sets a custom [`RecoveryStrategy`] used by [`recover`].
     ///
-    /// When a strategy is set, [`recover`] delegates entirely to it.
-    /// When no strategy is set, [`recover`] falls back to a
-    /// [`FileCarverStrategy`] configured with the engine's `signatures` and
-    /// `chunk_size`.
+    /// Falls back to [`FileCarverStrategy`] if no strategy is set.
     pub fn with_strategy(mut self, strategy: Box<dyn RecoveryStrategy>) -> Self {
         self.strategy = Some(strategy);
         self
     }
 
-    /// Recovers files from `source` using the configured strategy and returns
-    /// them as in-memory [`ExtractedFile`] values.
+    /// Recovers files from `source` using the configured strategy.
     ///
-    /// If no strategy was set via [`with_strategy`], a [`FileCarverStrategy`]
-    /// is used automatically with the engine's current `signatures` and
-    /// `chunk_size`.
+    /// Falls back to [`FileCarverStrategy`] if no strategy was set.
     ///
     /// # Errors
     ///
@@ -146,9 +123,6 @@ impl RecoveryEngine {
     /// Reads the raw bytes of each file in `carved` from `source` and returns
     /// them as in-memory [`ExtractedFile`] values.
     ///
-    /// No filesystem access is performed; the result can be inspected in tests
-    /// or passed to [`save_all`] to persist to disk.
-    ///
     /// # Errors
     ///
     /// - [`EngineError::Carver`] on any extraction error.
@@ -185,7 +159,10 @@ impl RecoveryEngine {
             });
         }
 
-        info!(files_extracted = extracted_files.len(), "extraction complete");
+        info!(
+            files_extracted = extracted_files.len(),
+            "extraction complete"
+        );
         Ok(extracted_files)
     }
 
