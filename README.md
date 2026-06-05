@@ -137,6 +137,8 @@ Launch the application and use the sidebar to navigate between screens:
 
 **Recover** — browse the list of found files, click any entry to preview it (images are rendered inline), check the files you want to keep, and click *Export Selected* to save them to a folder of your choice.
 
+![RustRecover desktop UI](.github/docs/desktop-screenshot.png)
+
 ---
 
 ### CLI
