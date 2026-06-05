@@ -1,0 +1,82 @@
+name: CI
+
+# Gatilhos: roda em todo push para main e em todo Pull Request cujo destino seja main.
+# Pull Requests de forks também disparam esse workflow, o que é importante para projetos
+# que aceitam contribuições externas.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Variável de ambiente disponível para todos os jobs deste workflow.
+# CARGO_TERM_COLOR força o cargo a emitir saída colorida mesmo em ambientes sem TTY
+# (terminais de CI normalmente não têm TTY, então o cargo desabilitaria as cores).
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  ci:
+    name: CI
+    # ubuntu-latest é o runner mais comum. O GitHub provisiona uma VM limpa a cada execução.
+    runs-on: ubuntu-latest
+
+    steps:
+      # Faz o checkout do código do repositório no runner.
+      # Sem esse step o runner não tem acesso ao código-fonte.
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Instala o toolchain Rust estável com os componentes extras que precisamos:
+      # - rustfmt: ferramenta de formatação (usada no step de fmt check)
+      # - clippy: linter estático do Rust
+      # dtolnay/rust-toolchain é a action recomendada pela comunidade Rust.
+      # A alternativa oficial (actions-rs/toolchain) foi descontinuada.
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      # Cache inteligente para projetos Rust. Sem cache, o cargo baixa e compila todas
+      # as dependências do zero a cada execução (~5-10 min para este workspace).
+      # Swatinem/rust-cache sabe exatamente o que cachear (registry, git sources, artefatos
+      # de compilação de dependências) e invalida o cache quando o Cargo.lock muda.
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      # Dependências de sistema necessárias para compilar as crates que têm bindings nativos:
+      # - libxkbcommon-dev: manipulação de teclado (exigido por winit/iced)
+      # - libwayland-dev: suporte ao protocolo Wayland (exigido por winit/iced)
+      # - libx11-dev: suporte X11 (exigido por winit/iced)
+      # - libgtk-3-dev: diálogos nativos (exigido pela crate rfd no Linux)
+      # - pkg-config: ferramenta que o cargo usa para localizar bibliotecas do sistema
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y \
+            libxkbcommon-dev \
+            libwayland-dev \
+            libx11-dev \
+            libgtk-3-dev \
+            pkg-config
+
+      # Verifica se todos os arquivos estão formatados conforme o rustfmt.
+      # --check não modifica arquivos — apenas retorna exit code != 0 se houver diferenças,
+      # o que faz o step (e o job inteiro) falhar.
+      - name: Check formatting
+        run: cargo fmt --check --all
+
+      # Roda o linter Clippy em todo o workspace.
+      # -D warnings transforma qualquer warning em erro, fazendo o CI falhar.
+      # Isso garante que warnings não se acumulem silenciosamente no codebase.
+      - name: Run Clippy
+        run: cargo clippy --workspace -- -D warnings
+
+      # Executa todos os testes do workspace (unit tests, integration tests, doc tests).
+      - name: Run tests
+        run: cargo test --workspace
+
+      # Compila todos os binários e bibliotecas em modo debug para garantir que
+      # o workspace compila sem erros mesmo que não haja testes cobrindo tudo.
+      - name: Build
+        run: cargo build --workspace
