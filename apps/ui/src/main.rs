@@ -29,6 +29,7 @@ fn main() -> iced::Result {
         .title("RustRecover")
         .theme(theme)
         .subscription(subscription)
+        .font(iced_fonts::BOOTSTRAP_FONT_BYTES)
         .run()
 }
 

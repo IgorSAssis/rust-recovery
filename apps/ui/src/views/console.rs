@@ -2,6 +2,7 @@ use std::time::UNIX_EPOCH;
 
 use iced::widget::{button, column, container, row, scrollable, text};
 use iced::{Alignment, Color, Element, Length};
+use iced_fonts::bootstrap;
 use tracing::Level;
 
 use crate::app::App;
@@ -12,31 +13,35 @@ const CONSOLE_HEIGHT: f32 = 220.0;
 pub fn view(app: &App) -> Element<'_, Message> {
     let translations = app.translations();
 
-    let toggle_label = if app.console_open {
-        translations.console_toggle_close
+    let (toggle_icon, toggle_label) = if app.console_open {
+        (bootstrap::chevron_down().size(12), translations.console_toggle_close)
     } else {
-        translations.console_toggle_open
+        (bootstrap::chevron_up().size(12), translations.console_toggle_open)
     };
 
-    let toggle_btn = button(text(toggle_label).size(12))
-        .style(button::text)
-        .on_press(Message::ToggleConsole);
+    let toggle_btn = button(
+        row![toggle_icon, text(toggle_label).size(12)]
+            .spacing(6)
+            .align_y(Alignment::Center),
+    )
+    .style(button::text)
+    .on_press(Message::ToggleConsole);
 
     let header = container(
         row![
+            bootstrap::terminal().size(12),
             text(translations.console_title).size(12),
             iced::widget::Space::new().width(Length::Fill),
             toggle_btn,
         ]
+        .spacing(6)
         .align_y(Alignment::Center),
     )
     .padding([4, 12])
     .width(Length::Fill);
 
     if !app.console_open {
-        return container(header)
-            .width(Length::Fill)
-            .into();
+        return container(header).width(Length::Fill).into();
     }
 
     let body: Element<Message> = if app.log_entries.is_empty() {
@@ -62,9 +67,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .into()
     };
 
-    container(column![header, body])
-        .width(Length::Fill)
-        .into()
+    container(column![header, body]).width(Length::Fill).into()
 }
 
 fn entry_row(entry: &crate::log_capture::LogEntry) -> Element<'_, Message> {
@@ -74,6 +77,14 @@ fn entry_row(entry: &crate::log_capture::LogEntry) -> Element<'_, Message> {
         Level::INFO => Color::from_rgb(0.4, 0.85, 0.5),
         Level::DEBUG => Color::from_rgb(0.6, 0.6, 0.6),
         Level::TRACE => Color::from_rgb(0.4, 0.4, 0.4),
+    };
+
+    let level_icon = match entry.level {
+        Level::ERROR => bootstrap::x_circle().size(11).color(level_color),
+        Level::WARN => bootstrap::exclamation_triangle().size(11).color(level_color),
+        Level::INFO => bootstrap::info_circle().size(11).color(level_color),
+        Level::DEBUG => bootstrap::bug().size(11).color(level_color),
+        Level::TRACE => bootstrap::dot().size(11).color(level_color),
     };
 
     let timestamp = entry
@@ -88,17 +99,9 @@ fn entry_row(entry: &crate::log_capture::LogEntry) -> Element<'_, Message> {
         })
         .unwrap_or_else(|_| "--:--:--".to_string());
 
-    let level_str = match entry.level {
-        Level::ERROR => "ERROR",
-        Level::WARN => "WARN ",
-        Level::INFO => "INFO ",
-        Level::DEBUG => "DEBUG",
-        Level::TRACE => "TRACE",
-    };
-
     row![
         text(timestamp).size(11).color(Color::from_rgb(0.5, 0.5, 0.5)),
-        text(level_str).size(11).color(level_color),
+        level_icon,
         text(format!("{} — {}", entry.target, entry.message)).size(11),
     ]
     .spacing(8)

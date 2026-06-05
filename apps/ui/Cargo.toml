@@ -17,3 +17,4 @@ device_detector = { path = "../../crates/device_detector" }
 file_carver = { path = "../../crates/file_carver", features = ["parallel"] }
 recovery_engine = { path = "../../crates/recovery_engine" }
 rfd = "0.14"
+iced_fonts = { version = "0.3.0", features = ["bootstrap"] }

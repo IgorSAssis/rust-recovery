@@ -1,5 +1,6 @@
 use iced::widget::{button, column, container, radio, row, text, text_input};
 use iced::{Alignment, Element, Length};
+use iced_fonts::bootstrap;
 
 use crate::app::App;
 use crate::message::{Message, StrategyKind};
@@ -7,7 +8,13 @@ use crate::message::{Message, StrategyKind};
 pub fn view(app: &App) -> Element<'_, Message> {
     let translations = app.translations();
 
-    let source_label = text(translations.source_label);
+    let source_label = row![
+        bootstrap::hdd().size(14),
+        text(translations.source_label).size(14),
+    ]
+    .spacing(6)
+    .align_y(Alignment::Center);
+
     let source_input = text_input(translations.source_placeholder, &app.source_path)
         .on_input(Message::SourcePathChanged)
         .padding(10);
@@ -35,9 +42,18 @@ pub fn view(app: &App) -> Element<'_, Message> {
     };
 
     let scan_btn = if app.scanning {
-        button(text(translations.scanning_btn).size(16))
+        button(
+            row![bootstrap::hourglass_split().size(14), text(translations.scanning_btn).size(16)]
+                .spacing(8)
+                .align_y(Alignment::Center),
+        )
     } else {
-        button(text(translations.scan_btn).size(16)).on_press(Message::ScanPressed)
+        button(
+            row![bootstrap::search().size(14), text(translations.scan_btn).size(16)]
+                .spacing(8)
+                .align_y(Alignment::Center),
+        )
+        .on_press(Message::ScanPressed)
     };
 
     let content = column![

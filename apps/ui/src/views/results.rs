@@ -3,6 +3,7 @@ use iced::widget::{
     button, checkbox, column, container, progress_bar, row, rule, scrollable, text,
 };
 use iced::{Alignment, Color, ContentFit, Element, Length};
+use iced_fonts::bootstrap;
 
 use crate::app::{App, ExportState};
 use crate::message::{Message, StrategyKind};
@@ -49,18 +50,25 @@ fn build_export_bar(app: &App) -> Element<'_, Message> {
         ExportState::Picking | ExportState::Exporting
     );
 
-    let toggle_label = if app.all_selected() {
-        translations.deselect_all
+    let (toggle_icon, toggle_label) = if app.all_selected() {
+        (bootstrap::dash_square().size(13), translations.deselect_all)
     } else {
-        translations.select_all
+        (bootstrap::check_square().size(13), translations.select_all)
     };
-    let toggle_btn = button(text(toggle_label).size(13))
-        .style(button::secondary)
-        .on_press(Message::ToggleAll);
+    let toggle_btn = button(
+        row![toggle_icon, text(toggle_label).size(13)]
+            .spacing(6)
+            .align_y(Alignment::Center),
+    )
+    .style(button::secondary)
+    .on_press(Message::ToggleAll);
 
     let export_btn = {
         let label = translations.export_selected(n_selected);
-        let b = button(text(label).size(13)).style(button::primary);
+        let content = row![bootstrap::download().size(13), text(label).size(13)]
+            .spacing(6)
+            .align_y(Alignment::Center);
+        let b = button(content).style(button::primary);
         if n_selected > 0 && !is_busy {
             b.on_press(Message::ExportPressed)
         } else {
@@ -70,21 +78,42 @@ fn build_export_bar(app: &App) -> Element<'_, Message> {
 
     let status: Element<Message> = match &app.export_state {
         ExportState::Idle => text("").size(13).into(),
-        ExportState::Picking => text(translations.export_picking).size(13).into(),
+        ExportState::Picking => row![
+            bootstrap::foldertwo_open().size(13),
+            text(translations.export_picking).size(13),
+        ]
+        .spacing(6)
+        .align_y(Alignment::Center)
+        .into(),
         ExportState::Exporting => column![
-            text(translations.exporting).size(13),
+            row![
+                bootstrap::arrow_repeat().size(13),
+                text(translations.exporting).size(13),
+            ]
+            .spacing(6)
+            .align_y(Alignment::Center),
             container(progress_bar(0.0..=1.0_f32, 0.5_f32)).width(200),
         ]
         .spacing(4)
         .into(),
-        ExportState::Done(n) => text(translations.export_success(*n))
-            .size(13)
-            .color(Color::from_rgb(0.2, 0.8, 0.2))
-            .into(),
-        ExportState::Failed(err) => text(translations.export_error(err))
-            .size(13)
-            .color(Color::from_rgb(0.9, 0.2, 0.2))
-            .into(),
+        ExportState::Done(n) => row![
+            bootstrap::check_circle().size(13).color(Color::from_rgb(0.2, 0.8, 0.2)),
+            text(translations.export_success(*n))
+                .size(13)
+                .color(Color::from_rgb(0.2, 0.8, 0.2)),
+        ]
+        .spacing(6)
+        .align_y(Alignment::Center)
+        .into(),
+        ExportState::Failed(err) => row![
+            bootstrap::x_circle().size(13).color(Color::from_rgb(0.9, 0.2, 0.2)),
+            text(translations.export_error(err))
+                .size(13)
+                .color(Color::from_rgb(0.9, 0.2, 0.2)),
+        ]
+        .spacing(6)
+        .align_y(Alignment::Center)
+        .into(),
     };
 
     container(
@@ -112,15 +141,29 @@ fn file_list(app: &App) -> Element<'_, Message> {
                 let is_checked = app.selected_files.contains(&i);
                 let is_selected = app.selected_file == Some(i);
 
+                let file_icon = if file.is_image() {
+                    bootstrap::file_earmark_image().size(13)
+                } else {
+                    bootstrap::file_earmark().size(13)
+                };
+
                 let label = format!("{:<28} {}", file.filename, format_size(file.bytes.len()));
                 let file_btn = if is_selected {
-                    button(text(label).size(13))
-                        .style(button::primary)
-                        .width(Length::Fill)
+                    button(
+                        row![file_icon, text(label).size(13)]
+                            .spacing(6)
+                            .align_y(Alignment::Center),
+                    )
+                    .style(button::primary)
+                    .width(Length::Fill)
                 } else {
-                    button(text(label).size(13))
-                        .style(button::secondary)
-                        .width(Length::Fill)
+                    button(
+                        row![file_icon, text(label).size(13)]
+                            .spacing(6)
+                            .align_y(Alignment::Center),
+                    )
+                    .style(button::secondary)
+                    .width(Length::Fill)
                 };
 
                 row![
@@ -173,7 +216,7 @@ fn preview_panel(app: &App) -> Element<'_, Message> {
 
                 None => container(
                     column![
-                        text("📄").size(52),
+                        bootstrap::file_earmark().size(52),
                         text(&file.filename).size(13),
                         text(format!(".{}", file.extension)).size(12),
                         text(format_size(file.bytes.len())).size(12),
