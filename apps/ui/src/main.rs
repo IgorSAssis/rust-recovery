@@ -1,6 +1,7 @@
 mod app;
 mod message;
 mod screen;
+mod locale;
 mod utils;
 mod views;
 mod worker;

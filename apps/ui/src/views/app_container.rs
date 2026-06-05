@@ -1,7 +1,8 @@
-use iced::widget::{button, column, container, row, rule, text};
+use iced::widget::{button, column, container, pick_list, row, rule, text};
 use iced::{Alignment, Element, Length};
 
 use crate::app::App;
+use crate::locale::Locale;
 use crate::message::Message;
 use crate::screen::Screen;
 
@@ -15,12 +16,14 @@ pub fn view(app: &App) -> Element<'_, Message> {
     };
 
     column![
-        header(),
+        header(app),
         rule::horizontal(1),
         row![
             sidebar(app),
             rule::vertical(1),
-            container(content).width(Length::Fill).height(Length::Fill),
+            container(content)
+                .width(Length::Fill)
+                .height(Length::Fill),
         ]
         .height(Length::Fill),
     ]
@@ -29,13 +32,22 @@ pub fn view(app: &App) -> Element<'_, Message> {
     .into()
 }
 
-fn header<'a>() -> Element<'a, Message> {
+fn header(app: &App) -> Element<'_, Message> {
+    let translations = app.translations();
+
+    let lang_selector = pick_list(Locale::ALL, Some(app.locale), Message::LanguageChanged);
+
     container(
-        column![
-            text("RustRecover").size(20),
-            text("File Recovery Tool").size(13),
+        row![
+            column![
+                text("RustRecover").size(20),
+                text(translations.app_subtitle).size(13),
+            ]
+            .spacing(2),
+            iced::widget::Space::new().width(Length::Fill),
+            lang_selector,
         ]
-        .align_x(Alignment::Start),
+        .align_y(Alignment::Center),
     )
     .padding([12, 16])
     .width(Length::Fill)
@@ -43,11 +55,12 @@ fn header<'a>() -> Element<'a, Message> {
 }
 
 fn sidebar(app: &App) -> Element<'_, Message> {
+    let translations = app.translations();
+
     let nav_btn = |label, screen: Screen| {
         let b = button(text(label).size(14)).width(Length::Fill);
         if app.screen == screen {
-            b.style(button::primary)
-                .on_press(Message::NavigateTo(screen))
+            b.style(button::primary).on_press(Message::NavigateTo(screen))
         } else {
             b.style(button::text).on_press(Message::NavigateTo(screen))
         }
@@ -59,7 +72,7 @@ fn sidebar(app: &App) -> Element<'_, Message> {
         } else {
             button::text
         };
-        let b = button(text("Recuperar").size(14))
+        let b = button(text(translations.nav_recover).size(14))
             .width(Length::Fill)
             .style(style);
         if !app.files.is_empty() {
@@ -71,8 +84,8 @@ fn sidebar(app: &App) -> Element<'_, Message> {
 
     container(
         column![
-            nav_btn("Dispositivos", Screen::Devices),
-            nav_btn("Escanear", Screen::Scan),
+            nav_btn(translations.nav_devices, Screen::Devices),
+            nav_btn(translations.nav_scan, Screen::Scan),
             recover_btn,
         ]
         .spacing(4),

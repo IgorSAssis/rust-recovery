@@ -6,6 +6,7 @@ use recovery_engine::types::ExtractedFile;
 
 use crate::message::{Message, StrategyKind};
 use crate::screen::Screen;
+use crate::locale::{self, Locale, Strings};
 use crate::views;
 
 /// State of the export operation.
@@ -32,6 +33,7 @@ pub struct App {
     pub export_state: ExportState,
     pub devices: Vec<StorageDevice>,
     pub detecting_devices: bool,
+    pub locale: Locale,
 }
 
 impl Default for App {
@@ -48,6 +50,7 @@ impl Default for App {
             export_state: ExportState::Idle,
             devices: Vec::new(),
             detecting_devices: false,
+            locale: Locale::detect(),
         }
     }
 }
@@ -59,6 +62,11 @@ impl App {
             // ── navigation ────────────────────────────────────────────────────
             Message::NavigateTo(screen) => {
                 self.screen = screen;
+                Task::none()
+            }
+
+            Message::LanguageChanged(locale) => {
+                self.locale = locale;
                 Task::none()
             }
 
@@ -97,7 +105,7 @@ impl App {
 
             Message::ScanPressed => {
                 if self.source_path.trim().is_empty() {
-                    self.error = Some("Enter a source path before scanning.".to_string());
+                    self.error = Some(self.translations().scan_error_no_source.to_string());
                     return Task::none();
                 }
                 self.scanning = true;
@@ -153,7 +161,8 @@ impl App {
 
             Message::ExportPressed => {
                 self.export_state = ExportState::Picking;
-                Task::perform(crate::worker::Worker::pick_folder(), Message::FolderPicked)
+                let title = self.translations().export_folder_title;
+                Task::perform(crate::worker::Worker::pick_folder(title), Message::FolderPicked)
             }
 
             Message::FolderPicked(None) => {
@@ -184,6 +193,13 @@ impl App {
                 self.export_state = ExportState::Failed(err);
                 Task::none()
             }
+        }
+    }
+
+    pub fn translations(&self) -> &'static Strings {
+        match self.locale {
+            Locale::PtBr => &locale::PT_BR,
+            Locale::En => &locale::EN,
         }
     }
 

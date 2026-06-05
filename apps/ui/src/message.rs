@@ -5,12 +5,14 @@ use recovery_engine::types::ExtractedFile;
 pub use recovery_engine::types::StrategyKind;
 
 use crate::screen::Screen;
+use crate::locale::Locale;
 
 /// All possible actions that can change the application state.
 #[derive(Debug, Clone)]
 pub enum Message {
     // ── navigation ────────────────────────────────────────────────────────────
     NavigateTo(Screen),
+    LanguageChanged(Locale),
 
     // ── devices ───────────────────────────────────────────────────────────────
     DetectDevicesPressed,

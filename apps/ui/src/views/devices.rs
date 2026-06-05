@@ -5,15 +5,15 @@ use crate::app::App;
 use crate::message::Message;
 
 pub fn view(app: &App) -> Element<'_, Message> {
-    let detect_btn = button(text("Detectar Dispositivos").size(14))
+    let translations = app.translations();
+
+    let detect_btn = button(text(translations.detect_btn).size(14))
         .on_press(Message::DetectDevicesPressed);
 
     let body: Element<Message> = if app.detecting_devices {
-        text("Detectando dispositivos…").size(14).into()
+        text(translations.detecting).size(14).into()
     } else if app.devices.is_empty() {
-        text("Clique em 'Detectar Dispositivos' para listar os dispositivos disponíveis.")
-            .size(14)
-            .into()
+        text(translations.devices_hint).size(14).into()
     } else {
         let rows: Vec<Element<Message>> = app
             .devices

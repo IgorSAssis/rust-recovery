@@ -29,22 +29,20 @@ pub fn view(app: &App) -> Element<'_, Message> {
 // ── Summary ───────────────────────────────────────────────────────────────────
 
 fn build_summary(app: &App) -> Element<'_, Message> {
+    let translations = app.translations();
     let strategy_label = match app.strategy {
         StrategyKind::Carver => "carver",
         StrategyKind::Fat32 => "fat32",
     };
-    text(format!(
-        "Found {} file(s) via {}.",
-        app.files.len(),
-        strategy_label,
-    ))
-    .size(13)
-    .into()
+    text(translations.files_found(app.files.len(), strategy_label))
+        .size(13)
+        .into()
 }
 
 // ── Export bar ────────────────────────────────────────────────────────────────
 
 fn build_export_bar(app: &App) -> Element<'_, Message> {
+    let translations = app.translations();
     let n_selected = app.selected_files.len();
     let is_busy = matches!(
         app.export_state,
@@ -52,16 +50,16 @@ fn build_export_bar(app: &App) -> Element<'_, Message> {
     );
 
     let toggle_label = if app.all_selected() {
-        "Deselect All"
+        translations.deselect_all
     } else {
-        "Select All"
+        translations.select_all
     };
     let toggle_btn = button(text(toggle_label).size(13))
         .style(button::secondary)
         .on_press(Message::ToggleAll);
 
     let export_btn = {
-        let label = format!("Export Selected ({})", n_selected);
+        let label = translations.export_selected(n_selected);
         let b = button(text(label).size(13)).style(button::primary);
         if n_selected > 0 && !is_busy {
             b.on_press(Message::ExportPressed)
@@ -72,18 +70,18 @@ fn build_export_bar(app: &App) -> Element<'_, Message> {
 
     let status: Element<Message> = match &app.export_state {
         ExportState::Idle => text("").size(13).into(),
-        ExportState::Picking => text("Opening folder picker…").size(13).into(),
+        ExportState::Picking => text(translations.export_picking).size(13).into(),
         ExportState::Exporting => column![
-            text("Exporting…").size(13),
+            text(translations.exporting).size(13),
             container(progress_bar(0.0..=1.0_f32, 0.5_f32)).width(200),
         ]
         .spacing(4)
         .into(),
-        ExportState::Done(n) => text(format!("✓ {} file(s) exported successfully.", n))
+        ExportState::Done(n) => text(translations.export_success(*n))
             .size(13)
             .color(Color::from_rgb(0.2, 0.8, 0.2))
             .into(),
-        ExportState::Failed(err) => text(format!("✗ {}", err))
+        ExportState::Failed(err) => text(translations.export_error(err))
             .size(13)
             .color(Color::from_rgb(0.9, 0.2, 0.2))
             .into(),
@@ -101,8 +99,10 @@ fn build_export_bar(app: &App) -> Element<'_, Message> {
 // ── File list (left panel) ────────────────────────────────────────────────────
 
 fn file_list(app: &App) -> Element<'_, Message> {
+    let translations = app.translations();
+
     let content: Element<Message> = if app.files.is_empty() {
-        text("No recoverable files were found.").size(14).into()
+        text(translations.no_files_found).size(14).into()
     } else {
         let rows: Vec<Element<Message>> = app
             .files
@@ -148,8 +148,10 @@ fn file_list(app: &App) -> Element<'_, Message> {
 // ── Preview panel (right panel) ───────────────────────────────────────────────
 
 fn preview_panel(app: &App) -> Element<'_, Message> {
+    let translations = app.translations();
+
     let content: Element<Message> = match app.selected_file {
-        None => container(text("Select a file to preview").size(14))
+        None => container(text(translations.select_to_preview).size(14))
             .center(Length::Fill)
             .into(),
 
