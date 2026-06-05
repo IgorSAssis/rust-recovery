@@ -109,11 +109,7 @@ fn recover_includes_files_with_any_extension() {
     let mut entry = make_dir_entry(b"BINARY  ", b"DAT", 0x20, 3, 100);
     entry[0] = DELETED_MARKER;
 
-    let img = build_image_with_data(
-        &[(2, 0x0FFF_FFFF)],
-        &[(entry, 2)],
-        &[(3, &dat_data)],
-    );
+    let img = build_image_with_data(&[(2, 0x0FFF_FFFF)], &[(entry, 2)], &[(3, &dat_data)]);
 
     let mut cursor = Cursor::new(img);
     let result = Fat32Strategy::new().recover(&mut cursor).unwrap();
@@ -177,14 +173,9 @@ fn recovery_engine_with_fat32_strategy_recovers_deleted_file() {
     let mut dir_entry = make_dir_entry(b"PHOTO   ", b"JPG", 0x20, 3, 8);
     dir_entry[0] = DELETED_MARKER;
 
-    let img = build_image_with_data(
-        &[(2, 0x0FFF_FFFF)],
-        &[(dir_entry, 2)],
-        &[(3, &jpeg_data)],
-    );
+    let img = build_image_with_data(&[(2, 0x0FFF_FFFF)], &[(dir_entry, 2)], &[(3, &jpeg_data)]);
 
-    let engine = RecoveryEngine::new()
-        .with_strategy(Box::new(Fat32Strategy::new()));
+    let engine = RecoveryEngine::for_strategy(Box::new(Fat32Strategy::new()));
 
     let mut cursor = Cursor::new(img);
     let extracted = engine.recover(&mut cursor).unwrap();

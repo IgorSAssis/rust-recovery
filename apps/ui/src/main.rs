@@ -1,5 +1,7 @@
 mod app;
 mod message;
+mod screen;
+mod utils;
 mod views;
 mod worker;
 
@@ -24,7 +26,7 @@ fn update(state: &mut App, message: Message) -> iced::Task<Message> {
 }
 
 fn theme(_state: &App) -> iced::Theme {
-    iced::Theme::Dark
+    iced::Theme::Dracula
 }
 
 fn view(state: &App) -> iced::Element<'_, Message> {

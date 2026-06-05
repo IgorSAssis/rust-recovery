@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use recovery_engine::types::ExtractedFile;
+pub use recovery_engine::types::StrategyKind;
 
 /// All possible actions that can change the application state.
 #[derive(Debug, Clone)]
@@ -23,21 +24,3 @@ pub enum Message {
     BackToScan,
 }
 
-/// Which recovery strategy the user selected.
-///
-/// `Copy` is required by iced's `radio` widget (`V: Copy + PartialEq`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum StrategyKind {
-    Carver,
-    Fat32,
-}
-
-/// State of the export operation.
-#[derive(Debug, Clone, PartialEq)]
-pub enum ExportState {
-    Idle,
-    Picking,
-    Exporting,
-    Done(usize),
-    Failed(String),
-}

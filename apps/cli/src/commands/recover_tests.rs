@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use file_carver::constants::DEFAULT_CHUNK_SIZE;
 use file_carver::signature::{FileKind, SUPPORTED_SIGNATURES};
 
-use super::{RecoverArgs, RecoverCommand, RecoveryStrategyKind};
+use super::{RecoverArgs, RecoverCommand, StrategyArg};
 
 fn make_command(types: Option<Vec<FileKind>>) -> RecoverCommand {
     RecoverCommand::new(RecoverArgs {
@@ -11,7 +11,7 @@ fn make_command(types: Option<Vec<FileKind>>) -> RecoverCommand {
         output: PathBuf::from("/tmp/out"),
         types,
         chunk_size: DEFAULT_CHUNK_SIZE,
-        strategy: RecoveryStrategyKind::Carver,
+        strategy: StrategyArg::Carver,
     })
 }
 

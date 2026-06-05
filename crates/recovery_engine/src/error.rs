@@ -16,7 +16,7 @@ pub enum EngineError {
     #[error("Scan aborted: no supported signatures configured")]
     NoSignaturesConfigured,
 
-    #[error("save_all requires an output directory — use RecoveryEngine::new() instead of scan_only()")]
+    #[error("Cannot save files: no output directory configured")]
     NoOutputDir,
 
     #[error("Invalid filesystem: {reason}")]

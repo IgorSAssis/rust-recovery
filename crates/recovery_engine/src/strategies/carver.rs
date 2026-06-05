@@ -5,7 +5,7 @@ use file_carver::signature::Signature;
 use tracing::{debug, info, instrument};
 
 use crate::error::EngineError;
-use crate::types::{ExtractedFile, ReadSeek};
+use crate::types::{ExtractedFile, FileInfo, ReadSeek};
 
 use super::RecoveryStrategy;
 
@@ -16,16 +16,15 @@ use super::RecoveryStrategy;
 /// any raw byte source including formatted or partially corrupted devices.
 ///
 /// Build it with the builder API, then pass it to
-/// [`RecoveryEngine::with_strategy`]:
+/// [`RecoveryEngine::for_strategy`]:
 ///
 /// ```ignore
 /// let strategy = FileCarverStrategy::new()
 ///     .with_signatures(SUPPORTED_SIGNATURES.iter().collect())
 ///     .with_chunk_size(4096);
 ///
-/// let engine = RecoveryEngine::new()
-///     .with_output_dir("/tmp/out")
-///     .with_strategy(Box::new(strategy));
+/// let engine = RecoveryEngine::for_strategy(Box::new(strategy))
+///     .with_output_dir("/tmp/out");
 /// ```
 pub struct FileCarverStrategy {
     chunk_size: usize,
@@ -97,5 +96,39 @@ impl RecoveryStrategy for FileCarverStrategy {
             "file carver recovery complete"
         );
         Ok(extracted)
+    }
+
+    #[instrument(
+        name = "strategy.carver.scan_only",
+        skip(self, source),
+        fields(signatures = self.signatures.len(), chunk_size = self.chunk_size)
+    )]
+    fn scan_only(&self, source: &mut dyn ReadSeek) -> Result<Vec<FileInfo>, EngineError> {
+        if self.signatures.is_empty() {
+            return Err(EngineError::NoSignaturesConfigured);
+        }
+
+        info!("starting file carver scan");
+
+        let scanner = self.signatures.iter().fold(
+            Scanner::new().with_chunk_size(self.chunk_size),
+            |s, sig| s.add_signature(sig),
+        );
+
+        let carved = scanner.scan(source)?;
+
+        info!(files_found = carved.len(), "file carver scan complete");
+
+        let file_infos: Vec<FileInfo> = carved
+            .iter()
+            .enumerate()
+            .map(|(i, c)| FileInfo {
+                filename: format!("recovered_{}.{}", i, c.kind.extension()),
+                extension: c.kind.extension().to_string(),
+                size_bytes: c.size() as usize,
+            })
+            .collect();
+
+        Ok(file_infos)
     }
 }

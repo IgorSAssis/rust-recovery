@@ -1,3 +1,29 @@
+/// Identifies which recovery strategy the engine should use.
+///
+/// This is the canonical representation shared by all consumers (CLI, UI).
+/// Each consumer is responsible for mapping its own input types to this enum.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StrategyKind {
+    /// Signature-based file carving — works on any device regardless of filesystem.
+    Carver,
+    /// FAT32 filesystem-aware recovery — preserves original filenames and sizes.
+    Fat32,
+}
+
+/// Metadata of a recoverable file produced by a scan-only pass.
+///
+/// Unlike [`ExtractedFile`], this type carries no byte content — it describes
+/// what *can* be recovered without loading file data into memory.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FileInfo {
+    /// Filename that would be assigned on recovery, e.g. `recovered_0.jpg`.
+    pub filename: String,
+    /// Lowercase extension without the leading dot, e.g. `"jpg"`.
+    pub extension: String,
+    /// File size in bytes.
+    pub size_bytes: usize,
+}
+
 /// A file extracted from a disk source, held in memory.
 ///
 /// Produced by [`crate::strategies::RecoveryStrategy::recover`] and consumed

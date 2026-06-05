@@ -1,50 +1,43 @@
 use std::fs;
-use std::io::{Read, Seek};
 use std::path::PathBuf;
 
-use file_carver::carved_file::CarvedFile;
-use file_carver::constants::DEFAULT_CHUNK_SIZE;
-use file_carver::extractor::Extractor;
-use file_carver::scanner::Scanner;
 use file_carver::signature::Signature;
 use tracing::{debug, info, instrument};
 
 use crate::error::EngineError;
 use crate::strategies::{FileCarverStrategy, RecoveryStrategy};
-use crate::types::{ExtractedFile, ReadSeek};
+use crate::types::{ExtractedFile, FileInfo, ReadSeek};
 
 /// Orchestrates scanning and extraction of carved files from any byte source.
 ///
 /// ```ignore
-/// let engine = RecoveryEngine::new()
-///     .with_output_dir("/tmp/out")
-///     .with_strategy(Box::new(Fat32Strategy::new()));
+/// let engine = RecoveryEngine::for_carver(SUPPORTED_SIGNATURES.iter().collect(), 4096)
+///     .with_output_dir("/tmp/out");
 ///
 /// let extracted = engine.recover(&mut source)?;
 /// let paths     = engine.save_all(&extracted)?;
 /// ```
 pub struct RecoveryEngine {
     output_dir: Option<PathBuf>,
-    chunk_size: usize,
-    signatures: Vec<&'static Signature>,
-    strategy: Option<Box<dyn RecoveryStrategy>>,
-}
-
-impl Default for RecoveryEngine {
-    fn default() -> Self {
-        Self {
-            output_dir: None,
-            chunk_size: DEFAULT_CHUNK_SIZE,
-            signatures: Vec::new(),
-            strategy: None,
-        }
-    }
+    strategy: Box<dyn RecoveryStrategy>,
 }
 
 impl RecoveryEngine {
-    /// Creates a new engine with no signatures configured.
-    pub fn new() -> Self {
-        Self::default()
+    /// Creates an engine that uses signature-based file carving.
+    pub fn for_carver(signatures: Vec<&'static Signature>, chunk_size: usize) -> Self {
+        Self::for_strategy(Box::new(
+            FileCarverStrategy::new()
+                .with_signatures(signatures)
+                .with_chunk_size(chunk_size),
+        ))
+    }
+
+    /// Creates an engine using a custom recovery strategy.
+    pub fn for_strategy(strategy: Box<dyn RecoveryStrategy>) -> Self {
+        Self {
+            output_dir: None,
+            strategy,
+        }
     }
 
     /// Sets (or replaces) the output directory used by [`save_all`].
@@ -53,117 +46,31 @@ impl RecoveryEngine {
         self
     }
 
-    /// Overrides the number of bytes read per iteration. Useful for tuning memory usage.
-    pub fn with_chunk_size(mut self, chunk_size: usize) -> Self {
-        self.chunk_size = chunk_size;
-        self
-    }
-
-    /// Replaces the current signature set with the provided list.
-    pub fn with_signatures(mut self, signatures: Vec<&'static Signature>) -> Self {
-        self.signatures = signatures;
-        self
-    }
-
-    /// Sets a custom [`RecoveryStrategy`] used by [`recover`].
-    ///
-    /// Falls back to [`FileCarverStrategy`] if no strategy is set.
-    pub fn with_strategy(mut self, strategy: Box<dyn RecoveryStrategy>) -> Self {
-        self.strategy = Some(strategy);
-        self
-    }
-
     /// Recovers files from `source` using the configured strategy.
-    ///
-    /// Falls back to [`FileCarverStrategy`] if no strategy was set.
     ///
     /// # Errors
     ///
-    /// - [`EngineError::NoSignaturesConfigured`] if carver strategy is used
+    /// - [`EngineError::NoSignaturesConfigured`] if using the carver strategy
     ///   without signatures.
     /// - [`EngineError::Carver`] or [`EngineError::Filesystem`] depending on
     ///   the active strategy.
     pub fn recover<R: ReadSeek>(&self, source: &mut R) -> Result<Vec<ExtractedFile>, EngineError> {
-        match &self.strategy {
-            Some(strategy) => strategy.recover(source),
-            None => FileCarverStrategy::new()
-                .with_chunk_size(self.chunk_size)
-                .with_signatures(self.signatures.clone())
-                .recover(source),
-        }
+        self.strategy.recover(source)
     }
 
-    /// Scans `source` from the beginning and returns all detected files,
-    /// sorted by their starting offset.
+    /// Lists recoverable files from `source` without loading their byte content.
     ///
     /// # Errors
     ///
-    /// - [`EngineError::NoSignaturesConfigured`] if the signature list is empty.
+    /// - [`EngineError::NoSignaturesConfigured`] if using the carver strategy
+    ///   without signatures.
     /// - [`EngineError::Carver`] on any scanning error.
-    #[instrument(name = "engine.scan", skip(self, source), fields(signatures = self.signatures.len(), chunk_size = self.chunk_size))]
-    pub fn scan<R>(&self, source: &mut R) -> Result<Vec<CarvedFile>, EngineError>
-    where
-        R: Read + Seek,
-    {
-        if self.signatures.is_empty() {
-            return Err(EngineError::NoSignaturesConfigured);
-        }
-
+    #[instrument(name = "engine.scan", skip(self, source))]
+    pub fn scan<R: ReadSeek>(&self, source: &mut R) -> Result<Vec<FileInfo>, EngineError> {
         info!("starting scan");
-        let scanner = self.signatures.iter().fold(
-            Scanner::new().with_chunk_size(self.chunk_size),
-            |scanner, signature| scanner.add_signature(signature),
-        );
-
-        let carved_files = scanner.scan(source)?;
-        info!(files_found = carved_files.len(), "scan finished");
-        Ok(carved_files)
-    }
-
-    /// Reads the raw bytes of each file in `carved` from `source` and returns
-    /// them as in-memory [`ExtractedFile`] values.
-    ///
-    /// # Errors
-    ///
-    /// - [`EngineError::Carver`] on any extraction error.
-    #[instrument(name = "engine.extract", skip(self, source, carved), fields(files = carved.len()))]
-    pub fn extract_all<R>(
-        &self,
-        source: &mut R,
-        carved: &[CarvedFile],
-    ) -> Result<Vec<ExtractedFile>, EngineError>
-    where
-        R: Read + Seek,
-    {
-        info!("starting extraction");
-        let extractor = Extractor::new().with_chunk_size(self.chunk_size);
-        let mut extracted_files: Vec<ExtractedFile> = Vec::new();
-
-        for (index, carved_file) in carved.iter().enumerate() {
-            let extension = carved_file.kind.extension().to_string();
-            let filename = format!("recovered_{}.{}", index, extension);
-            let mut bytes: Vec<u8> = Vec::new();
-
-            extractor.extract(source, carved_file, &mut bytes)?;
-
-            debug!(
-                filename,
-                kind = %carved_file.kind,
-                bytes = bytes.len(),
-                "file extracted"
-            );
-            extracted_files.push(ExtractedFile {
-                filename,
-                extension,
-                bytes,
-            });
-        }
-
-        info!(
-            files_extracted = extracted_files.len(),
-            "extraction complete"
-        );
-        Ok(extracted_files)
+        let file_infos = self.strategy.scan_only(source)?;
+        info!(files_found = file_infos.len(), "scan finished");
+        Ok(file_infos)
     }
 
     /// Writes each [`ExtractedFile`] to `output_dir`, creating it if needed.

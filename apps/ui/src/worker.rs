@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::path::PathBuf;
 
+use file_carver::constants::DEFAULT_CHUNK_SIZE;
 use file_carver::signature::SUPPORTED_SIGNATURES;
 use recovery_engine::engine::RecoveryEngine;
 use recovery_engine::strategies::Fat32Strategy;
@@ -20,13 +21,11 @@ pub async fn run_scan(
         match strategy {
             StrategyKind::Carver => {
                 let signatures: Vec<_> = SUPPORTED_SIGNATURES.iter().collect();
-                RecoveryEngine::new()
-                    .with_signatures(signatures)
+                RecoveryEngine::for_carver(signatures, DEFAULT_CHUNK_SIZE)
                     .recover(&mut file)
                     .map_err(|e| e.to_string())
             }
-            StrategyKind::Fat32 => RecoveryEngine::new()
-                .with_strategy(Box::new(Fat32Strategy))
+            StrategyKind::Fat32 => RecoveryEngine::for_strategy(Box::new(Fat32Strategy))
                 .recover(&mut file)
                 .map_err(|e| e.to_string()),
         }

@@ -2,8 +2,9 @@ use iced::widget::image::{Handle as ImageHandle, Image as IcedImage};
 use iced::widget::{button, checkbox, column, container, progress_bar, row, scrollable, text};
 use iced::{Alignment, Color, ContentFit, Element, Length};
 
-use crate::app::{format_size, App};
-use crate::message::{ExportState, Message, StrategyKind};
+use crate::app::{App, ExportState};
+use crate::utils::format_size;
+use crate::message::{Message, StrategyKind};
 
 pub fn view(app: &App) -> Element<'_, Message> {
     let header = build_header(app);

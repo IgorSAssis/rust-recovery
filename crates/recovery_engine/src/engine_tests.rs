@@ -1,8 +1,8 @@
 use std::io::Cursor;
 
-use file_carver::carved_file::CarvedFile;
-use file_carver::signature::{FileKind, JPEG_SIGNATURE, PNG_SIGNATURE};
+use file_carver::constants::DEFAULT_CHUNK_SIZE;
 use file_carver::signature::SUPPORTED_SIGNATURES;
+use file_carver::signature::{JPEG_SIGNATURE, PNG_SIGNATURE};
 
 use super::engine::RecoveryEngine;
 use super::error::EngineError;
@@ -12,8 +12,6 @@ use super::types::ExtractedFile;
 
 const SECTOR_SIZE: usize = 512;
 
-/// Constructs a file whose bytes are: `header` + zero-filled body + `footer`.
-/// Using 0x00 as filler guarantees no accidental signature matches.
 fn make_file_bytes(header: &[u8], footer: &[u8], body_size: usize) -> Vec<u8> {
     let mut bytes = Vec::new();
     bytes.extend_from_slice(header);
@@ -22,7 +20,6 @@ fn make_file_bytes(header: &[u8], footer: &[u8], body_size: usize) -> Vec<u8> {
     bytes
 }
 
-/// Pads `data` with zeros to reach exactly `total_size` bytes.
 fn pad_to(mut data: Vec<u8>, total_size: usize) -> Vec<u8> {
     data.resize(total_size, 0x00);
     data
@@ -72,103 +69,84 @@ fn build_test_disk() -> Vec<u8> {
     disk
 }
 
-// ── scan tests (fully in-memory) ──────────────────────────────────────────────
+// ── scan tests ────────────────────────────────────────────────────────────────
 
 #[test]
 fn scan_finds_all_recoverable_files() {
     let mut source = Cursor::new(build_test_disk());
-    let engine = RecoveryEngine::new()
-        .with_output_dir(std::env::temp_dir())
-        .with_signatures(SUPPORTED_SIGNATURES.iter().collect())
-        .with_chunk_size(512);
+    let engine = RecoveryEngine::for_carver(SUPPORTED_SIGNATURES.iter().collect(), SECTOR_SIZE);
 
-    let carved_files = engine.scan(&mut source).unwrap();
+    let file_infos = engine.scan(&mut source).unwrap();
 
-    assert_eq!(carved_files.len(), 3, "expected 3 recoverable files");
+    assert_eq!(file_infos.len(), 3, "expected 3 recoverable files");
 }
 
 #[test]
-fn scan_returns_files_at_correct_offsets() {
+fn scan_returns_files_with_correct_extensions() {
     let mut source = Cursor::new(build_test_disk());
-    let engine = RecoveryEngine::new()
-        .with_output_dir(std::env::temp_dir())
-        .with_signatures(SUPPORTED_SIGNATURES.iter().collect())
-        .with_chunk_size(512);
+    let engine = RecoveryEngine::for_carver(SUPPORTED_SIGNATURES.iter().collect(), SECTOR_SIZE);
 
-    let carved_files = engine.scan(&mut source).unwrap();
+    let file_infos = engine.scan(&mut source).unwrap();
 
-    assert_eq!(carved_files[0].offset_start, 512);
-    assert_eq!(carved_files[1].offset_start, 1536);
-    assert_eq!(carved_files[2].offset_start, 2560);
+    assert_eq!(file_infos[0].extension, "jpg");
+    assert_eq!(file_infos[1].extension, "png");
+    assert_eq!(file_infos[2].extension, "jpg");
 }
 
 #[test]
-fn scan_returns_files_with_correct_kinds() {
+fn scan_returns_files_with_correct_filenames() {
     let mut source = Cursor::new(build_test_disk());
-    let engine = RecoveryEngine::new()
-        .with_output_dir(std::env::temp_dir())
-        .with_signatures(SUPPORTED_SIGNATURES.iter().collect())
-        .with_chunk_size(512);
+    let engine = RecoveryEngine::for_carver(SUPPORTED_SIGNATURES.iter().collect(), SECTOR_SIZE);
 
-    let carved_files = engine.scan(&mut source).unwrap();
+    let file_infos = engine.scan(&mut source).unwrap();
 
-    assert_eq!(carved_files[0].kind, FileKind::Jpeg);
-    assert_eq!(carved_files[1].kind, FileKind::Png);
-    assert_eq!(carved_files[2].kind, FileKind::Jpeg);
+    assert_eq!(file_infos[0].filename, "recovered_0.jpg");
+    assert_eq!(file_infos[1].filename, "recovered_1.png");
+    assert_eq!(file_infos[2].filename, "recovered_2.jpg");
 }
 
 #[test]
 fn scan_ignores_corrupted_file_without_footer() {
     let mut source = Cursor::new(build_test_disk());
-    let engine = RecoveryEngine::new()
-        .with_output_dir(std::env::temp_dir())
-        .with_signatures(SUPPORTED_SIGNATURES.iter().collect())
-        .with_chunk_size(512);
+    let engine = RecoveryEngine::for_carver(SUPPORTED_SIGNATURES.iter().collect(), SECTOR_SIZE);
 
-    let carved_files = engine.scan(&mut source).unwrap();
+    let file_infos = engine.scan(&mut source).unwrap();
 
-    let starts: Vec<u64> = carved_files
-        .iter()
-        .map(|carved| carved.offset_start)
-        .collect();
-    assert!(
-        !starts.contains(&3584),
-        "corrupted file should not appear in results"
+    assert_eq!(
+        file_infos.len(),
+        3,
+        "corrupted file without footer must not appear in results"
     );
 }
 
-// ── extract_all tests (fully in-memory) ───────────────────────────────────────
+#[test]
+fn scan_without_output_dir_succeeds() {
+    let mut source = Cursor::new(build_test_disk());
+    let engine = RecoveryEngine::for_carver(SUPPORTED_SIGNATURES.iter().collect(), SECTOR_SIZE);
+
+    let file_infos = engine.scan(&mut source).unwrap();
+
+    assert_eq!(file_infos.len(), 3);
+}
+
+// ── recover tests ─────────────────────────────────────────────────────────────
 
 #[test]
-fn extract_all_returns_one_entry_per_carved_file() {
-    let disk = build_test_disk();
-    let engine = RecoveryEngine::new()
-        .with_output_dir(std::env::temp_dir())
-        .with_signatures(SUPPORTED_SIGNATURES.iter().collect())
-        .with_chunk_size(512);
+fn recover_returns_one_entry_per_file() {
+    let mut source = Cursor::new(build_test_disk());
+    let engine = RecoveryEngine::for_carver(SUPPORTED_SIGNATURES.iter().collect(), SECTOR_SIZE);
 
-    let mut source = Cursor::new(disk.clone());
-    let carved_files = engine.scan(&mut source).unwrap();
+    let extracted = engine.recover(&mut source).unwrap();
 
-    let mut source = Cursor::new(disk);
-    let extracted = engine.extract_all(&mut source, &carved_files).unwrap();
-
-    assert_eq!(extracted.len(), carved_files.len());
+    assert_eq!(extracted.len(), 3);
 }
 
 #[test]
-fn extract_all_returns_files_with_correct_kinds() {
-    let disk = build_test_disk();
-    let engine = RecoveryEngine::new()
-        .with_output_dir(std::env::temp_dir())
-        .with_signatures(SUPPORTED_SIGNATURES.iter().collect())
-        .with_chunk_size(512);
+fn recover_returns_files_with_correct_extensions() {
+    let mut source = Cursor::new(build_test_disk());
+    let engine = RecoveryEngine::for_carver(SUPPORTED_SIGNATURES.iter().collect(), SECTOR_SIZE);
 
-    let mut source = Cursor::new(disk.clone());
-    let carved_files = engine.scan(&mut source).unwrap();
-
-    let mut source = Cursor::new(disk);
-    let extracted = engine.extract_all(&mut source, &carved_files).unwrap();
+    let extracted = engine.recover(&mut source).unwrap();
 
     assert_eq!(extracted[0].extension, "jpg");
     assert_eq!(extracted[1].extension, "png");
@@ -176,18 +154,11 @@ fn extract_all_returns_files_with_correct_kinds() {
 }
 
 #[test]
-fn extract_all_returns_files_with_correct_filenames() {
-    let disk = build_test_disk();
-    let engine = RecoveryEngine::new()
-        .with_output_dir(std::env::temp_dir())
-        .with_signatures(SUPPORTED_SIGNATURES.iter().collect())
-        .with_chunk_size(512);
+fn recover_returns_files_with_correct_filenames() {
+    let mut source = Cursor::new(build_test_disk());
+    let engine = RecoveryEngine::for_carver(SUPPORTED_SIGNATURES.iter().collect(), SECTOR_SIZE);
 
-    let mut source = Cursor::new(disk.clone());
-    let carved_files = engine.scan(&mut source).unwrap();
-
-    let mut source = Cursor::new(disk);
-    let extracted = engine.extract_all(&mut source, &carved_files).unwrap();
+    let extracted = engine.recover(&mut source).unwrap();
 
     assert_eq!(extracted[0].filename, "recovered_0.jpg");
     assert_eq!(extracted[1].filename, "recovered_1.png");
@@ -195,45 +166,23 @@ fn extract_all_returns_files_with_correct_filenames() {
 }
 
 #[test]
-fn extract_all_bytes_start_with_correct_header() {
-    let disk = build_test_disk();
-    let engine = RecoveryEngine::new()
-        .with_output_dir(std::env::temp_dir())
-        .with_signatures(SUPPORTED_SIGNATURES.iter().collect())
-        .with_chunk_size(512);
+fn recover_bytes_start_with_correct_header() {
+    let mut source = Cursor::new(build_test_disk());
+    let engine = RecoveryEngine::for_carver(SUPPORTED_SIGNATURES.iter().collect(), SECTOR_SIZE);
 
-    let mut source = Cursor::new(disk.clone());
-    let carved_files = engine.scan(&mut source).unwrap();
+    let extracted = engine.recover(&mut source).unwrap();
 
-    let mut source = Cursor::new(disk);
-    let extracted = engine.extract_all(&mut source, &carved_files).unwrap();
-
-    assert!(
-        extracted[0]
-            .bytes
-            .starts_with(JPEG_SIGNATURE.header_pattern)
-    );
+    assert!(extracted[0].bytes.starts_with(JPEG_SIGNATURE.header_pattern));
     assert!(extracted[1].bytes.starts_with(PNG_SIGNATURE.header_pattern));
-    assert!(
-        extracted[2]
-            .bytes
-            .starts_with(JPEG_SIGNATURE.header_pattern)
-    );
+    assert!(extracted[2].bytes.starts_with(JPEG_SIGNATURE.header_pattern));
 }
 
 #[test]
-fn extract_all_bytes_end_with_correct_footer() {
-    let disk = build_test_disk();
-    let engine = RecoveryEngine::new()
-        .with_output_dir(std::env::temp_dir())
-        .with_signatures(SUPPORTED_SIGNATURES.iter().collect())
-        .with_chunk_size(512);
+fn recover_bytes_end_with_correct_footer() {
+    let mut source = Cursor::new(build_test_disk());
+    let engine = RecoveryEngine::for_carver(SUPPORTED_SIGNATURES.iter().collect(), SECTOR_SIZE);
 
-    let mut source = Cursor::new(disk.clone());
-    let carved_files = engine.scan(&mut source).unwrap();
-
-    let mut source = Cursor::new(disk);
-    let extracted = engine.extract_all(&mut source, &carved_files).unwrap();
+    let extracted = engine.recover(&mut source).unwrap();
 
     assert!(extracted[0].bytes.ends_with(JPEG_SIGNATURE.footer_pattern));
     assert!(extracted[1].bytes.ends_with(PNG_SIGNATURE.footer_pattern));
@@ -241,39 +190,16 @@ fn extract_all_bytes_end_with_correct_footer() {
 }
 
 #[test]
-fn extract_all_with_empty_carved_list_returns_empty_vec() {
-    let engine = RecoveryEngine::new()
-        .with_output_dir(std::env::temp_dir())
-        .with_signatures(SUPPORTED_SIGNATURES.iter().collect());
+fn recover_with_no_signatures_returns_error() {
     let mut source = Cursor::new(build_test_disk());
+    let engine = RecoveryEngine::for_carver(vec![], DEFAULT_CHUNK_SIZE);
 
-    let extracted = engine.extract_all(&mut source, &[]).unwrap();
+    let result = engine.recover(&mut source);
 
-    assert!(extracted.is_empty());
+    assert!(matches!(result, Err(EngineError::NoSignaturesConfigured)));
 }
 
-#[test]
-fn extract_all_with_manually_constructed_carved_file_extracts_correct_bytes() {
-    let mut disk = vec![0xAAu8; 1024];
-    disk[100..103].copy_from_slice(JPEG_SIGNATURE.header_pattern);
-    disk[107..109].copy_from_slice(JPEG_SIGNATURE.footer_pattern);
-
-    let carved_file = CarvedFile {
-        kind: FileKind::Jpeg,
-        offset_start: 100,
-        offset_end: 109,
-    };
-
-    let engine = RecoveryEngine::new()
-        .with_output_dir(std::env::temp_dir())
-        .with_signatures(SUPPORTED_SIGNATURES.iter().collect());
-    let mut source = Cursor::new(disk.clone());
-    let extracted = engine.extract_all(&mut source, &[carved_file]).unwrap();
-
-    assert_eq!(extracted[0].bytes, &disk[100..109]);
-}
-
-// ── save_all tests (filesystem — isolated to this section) ───────────────────
+// ── save_all tests ────────────────────────────────────────────────────────────
 
 fn temp_output_dir(suffix: &str) -> std::path::PathBuf {
     let dir = std::env::temp_dir().join(format!("rust_recovery_out_{}", suffix));
@@ -284,7 +210,8 @@ fn temp_output_dir(suffix: &str) -> std::path::PathBuf {
 #[test]
 fn save_all_creates_output_directory_and_files() {
     let output_dir = temp_output_dir("save_all");
-    let engine = RecoveryEngine::new().with_output_dir(&output_dir);
+    let engine = RecoveryEngine::for_carver(SUPPORTED_SIGNATURES.iter().collect(), DEFAULT_CHUNK_SIZE)
+        .with_output_dir(&output_dir);
 
     let extracted = vec![
         ExtractedFile {
@@ -309,7 +236,8 @@ fn save_all_creates_output_directory_and_files() {
 #[test]
 fn save_all_writes_correct_bytes_to_disk() {
     let output_dir = temp_output_dir("save_bytes");
-    let engine = RecoveryEngine::new().with_output_dir(&output_dir);
+    let engine = RecoveryEngine::for_carver(SUPPORTED_SIGNATURES.iter().collect(), DEFAULT_CHUNK_SIZE)
+        .with_output_dir(&output_dir);
 
     let expected_bytes = vec![0x01, 0x02, 0x03, 0x04];
     let extracted = vec![ExtractedFile {
@@ -326,7 +254,7 @@ fn save_all_writes_correct_bytes_to_disk() {
 
 #[test]
 fn save_all_without_output_dir_returns_no_output_dir_error() {
-    let engine = RecoveryEngine::new();
+    let engine = RecoveryEngine::for_carver(SUPPORTED_SIGNATURES.iter().collect(), DEFAULT_CHUNK_SIZE);
     let extracted = vec![ExtractedFile {
         filename: "recovered_0.jpg".to_string(),
         extension: "jpg".to_string(),
@@ -336,16 +264,4 @@ fn save_all_without_output_dir_returns_no_output_dir_error() {
     let result = engine.save_all(&extracted);
 
     assert!(matches!(result, Err(EngineError::NoOutputDir)));
-}
-
-#[test]
-fn scan_without_output_dir_succeeds() {
-    let mut source = Cursor::new(build_test_disk());
-    let engine = RecoveryEngine::new()
-        .with_signatures(SUPPORTED_SIGNATURES.iter().collect())
-        .with_chunk_size(512);
-
-    let carved_files = engine.scan(&mut source).unwrap();
-
-    assert_eq!(carved_files.len(), 3);
 }

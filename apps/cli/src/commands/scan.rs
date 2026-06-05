@@ -50,38 +50,34 @@ impl Command for ScanCommand {
         );
         println!();
 
-        let engine = RecoveryEngine::new()
-            .with_signatures(SUPPORTED_SIGNATURES.iter().collect())
-            .with_chunk_size(self.args.chunk_size);
+        let engine = RecoveryEngine::for_carver(
+            SUPPORTED_SIGNATURES.iter().collect(),
+            self.args.chunk_size,
+        );
 
-        let carved_files = engine.scan(&mut source).context("Scan failed")?;
+        let file_infos = engine.scan(&mut source).context("Scan failed")?;
 
-        if carved_files.is_empty() {
+        if file_infos.is_empty() {
             println!("No recoverable files found.");
             return Ok(());
         }
 
-        let separator = "-".repeat(62);
+        let separator = "-".repeat(50);
 
-        println!(
-            "{:<4}  {:<6}  {:>18}  {:>14}  {:>10}",
-            "#", "Type", "Start (offset)", "End (offset)", "Size"
-        );
+        println!("{:<4}  {:<6}  Size", "#", "Type");
         println!("{separator}");
 
-        for (index, carved_file) in carved_files.iter().enumerate() {
+        for (index, file_info) in file_infos.iter().enumerate() {
             println!(
-                "{:<4}  {:<6}  {:>18}  {:>14}  {:>10}",
+                "{:<4}  {:<6}  {} B",
                 index,
-                carved_file.kind.name(),
-                carved_file.offset_start,
-                carved_file.offset_end,
-                format!("{} B", carved_file.size()),
+                file_info.extension.to_uppercase(),
+                file_info.size_bytes,
             );
         }
 
         println!("{separator}");
-        println!("Total: {} file(s) found", carved_files.len());
+        println!("Total: {} file(s) found", file_infos.len());
 
         Ok(())
     }

@@ -2,7 +2,7 @@ use clap::Parser;
 use file_carver::signature::FileKind;
 
 use super::{Cli, Commands};
-use crate::commands::recover::RecoveryStrategyKind;
+use crate::commands::recover::StrategyArg;
 
 #[test]
 fn scan_subcommand_parses_source_arg() {
@@ -120,7 +120,7 @@ fn recover_strategy_defaults_to_carver() {
     let Commands::Recover(args) = cli.command else {
         panic!("expected Recover variant");
     };
-    assert_eq!(args.strategy, RecoveryStrategyKind::Carver);
+    assert_eq!(args.strategy, StrategyArg::Carver);
 }
 
 #[test]
@@ -139,7 +139,7 @@ fn recover_strategy_arg_parses_fat32() {
     let Commands::Recover(args) = cli.command else {
         panic!("expected Recover variant");
     };
-    assert_eq!(args.strategy, RecoveryStrategyKind::Fat32);
+    assert_eq!(args.strategy, StrategyArg::Fat32);
 }
 
 #[test]
@@ -158,7 +158,7 @@ fn recover_strategy_arg_parses_carver_explicitly() {
     let Commands::Recover(args) = cli.command else {
         panic!("expected Recover variant");
     };
-    assert_eq!(args.strategy, RecoveryStrategyKind::Carver);
+    assert_eq!(args.strategy, StrategyArg::Carver);
 }
 
 #[test]

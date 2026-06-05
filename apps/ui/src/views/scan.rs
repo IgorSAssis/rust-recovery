@@ -5,16 +5,13 @@ use crate::app::App;
 use crate::message::{Message, StrategyKind};
 
 pub fn view(app: &App) -> Element<'_, Message> {
-    let title = text("RustRecover").size(32);
+    let title = text("RustRecover - Scan Screen").size(32);
     let subtitle = text("File Recovery Tool").size(14);
 
     let source_label = text("Source path:");
-    let source_input = text_input(
-        "/dev/sdb1  or  /path/to/image.img",
-        &app.source_path,
-    )
-    .on_input(Message::SourcePathChanged)
-    .padding(10);
+    let source_input = text_input("/dev/sdb1  or  /path/to/image.img", &app.source_path)
+        .on_input(Message::SourcePathChanged)
+        .padding(10);
 
     let strategy_label = text("Recovery strategy:");
     let carver_radio = radio(
@@ -61,8 +58,5 @@ pub fn view(app: &App) -> Element<'_, Message> {
     .spacing(8)
     .max_width(600);
 
-    container(content)
-        .center(Length::Fill)
-        .padding(40)
-        .into()
+    container(content).center(Length::Fill).padding(40).into()
 }

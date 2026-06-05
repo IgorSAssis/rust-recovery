@@ -8,18 +8,32 @@ use file_carver::signature::{FileKind, SUPPORTED_SIGNATURES, Signature};
 use recovery_engine::engine::RecoveryEngine;
 use recovery_engine::strategies::Fat32Strategy;
 
+use recovery_engine::types::StrategyKind;
+
 use super::Command;
 use crate::progress::{IndicatifReporter, ProgressReporter};
 use crate::validation::SourceValidator;
 
-/// Recovery strategy to use when scanning a device.
+/// CLI argument adapter for strategy selection.
+///
+/// Exists solely to satisfy `clap::ValueEnum` — converts to the canonical
+/// `StrategyKind` from `recovery_engine` via `From` before use.
 #[derive(ValueEnum, Clone, Debug, PartialEq)]
-pub enum RecoveryStrategyKind {
+pub enum StrategyArg {
     /// Signature-based file carver — works on any device regardless of filesystem
     Carver,
     /// FAT32 filesystem-aware recovery — use on FAT32-formatted devices for more
     /// accurate filename and size information
     Fat32,
+}
+
+impl From<StrategyArg> for StrategyKind {
+    fn from(arg: StrategyArg) -> Self {
+        match arg {
+            StrategyArg::Carver => StrategyKind::Carver,
+            StrategyArg::Fat32  => StrategyKind::Fat32,
+        }
+    }
 }
 
 #[derive(Args)]
@@ -50,7 +64,7 @@ pub struct RecoverArgs {
         default_value = "carver",
         help = "Recovery strategy: 'carver' (signature-based, any device) or 'fat32' (filesystem-aware)"
     )]
-    pub strategy: RecoveryStrategyKind,
+    pub strategy: StrategyArg,
 }
 
 pub struct RecoverCommand {
@@ -102,8 +116,8 @@ impl Command for RecoverCommand {
         println!();
 
         match self.args.strategy {
-            RecoveryStrategyKind::Carver => self.run_carver(&mut source),
-            RecoveryStrategyKind::Fat32 => self.run_fat32(&mut source),
+            StrategyArg::Carver => self.run_carver(&mut source),
+            StrategyArg::Fat32 => self.run_fat32(&mut source),
         }
     }
 }
@@ -111,8 +125,8 @@ impl Command for RecoverCommand {
 impl RecoverCommand {
     fn strategy_label(&self) -> &str {
         match self.args.strategy {
-            RecoveryStrategyKind::Carver => "carver (signature-based)",
-            RecoveryStrategyKind::Fat32 => "fat32 (filesystem-aware)",
+            StrategyArg::Carver => "carver (signature-based)",
+            StrategyArg::Fat32 => "fat32 (filesystem-aware)",
         }
     }
 
@@ -131,24 +145,18 @@ impl RecoverCommand {
         println!("Scanning...");
 
         let signatures = self.resolve_signatures();
-        let engine = RecoveryEngine::new()
-            .with_output_dir(&self.args.output)
-            .with_signatures(signatures)
-            .with_chunk_size(self.args.chunk_size);
+        let engine = RecoveryEngine::for_carver(signatures, self.args.chunk_size)
+            .with_output_dir(&self.args.output);
 
-        let carved_files = engine.scan(source).context("Scan failed")?;
+        let extracted_files = engine.recover(source).context("Recovery failed")?;
 
-        if carved_files.is_empty() {
+        if extracted_files.is_empty() {
             println!("No recoverable files found.");
             return Ok(());
         }
 
-        println!("Found {} file(s) to recover.", carved_files.len());
+        println!("Found {} file(s) to recover.", extracted_files.len());
         println!();
-
-        let extracted_files = engine
-            .extract_all(source, &carved_files)
-            .context("Extraction failed")?;
 
         self.save_and_report(&engine, &extracted_files)
     }
@@ -156,9 +164,8 @@ impl RecoverCommand {
     fn run_fat32(&mut self, source: &mut File) -> Result<()> {
         println!("Scanning FAT32 directory entries...");
 
-        let engine = RecoveryEngine::new()
-            .with_output_dir(&self.args.output)
-            .with_strategy(Box::new(Fat32Strategy));
+        let engine = RecoveryEngine::for_strategy(Box::new(Fat32Strategy))
+            .with_output_dir(&self.args.output);
 
         let extracted_files = engine
             .recover(source)

@@ -3,17 +3,22 @@ use std::collections::HashSet;
 use iced::{Element, Task};
 use recovery_engine::types::ExtractedFile;
 
-use crate::message::{ExportState, Message, StrategyKind};
+use crate::message::{Message, StrategyKind};
+use crate::screen::Screen;
 use crate::views;
 
-/// Which screen is currently shown.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Screen {
-    Scan,
-    Results,
+/// State of the export operation.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ExportState {
+    Idle,
+    Picking,
+    Exporting,
+    Done(usize),
+    Failed(String),
 }
 
 /// The complete application state.
+#[derive(Clone)]
 pub struct App {
     pub screen: Screen,
     pub source_path: String,
@@ -159,6 +164,7 @@ impl App {
 
     pub fn view(&self) -> Element<'_, Message> {
         match self.screen {
+            Screen::Devices => iced::widget::text("").into(),
             Screen::Scan => views::scan::view(self),
             Screen::Results => views::results::view(self),
         }
@@ -170,29 +176,3 @@ impl App {
     }
 }
 
-/// Formats a byte count into a human-readable string (B / KB / MB).
-pub fn format_size(bytes: usize) -> String {
-    if bytes < 1_024 {
-        format!("{} B", bytes)
-    } else if bytes < 1_024 * 1_024 {
-        format!("{:.1} KB", bytes as f64 / 1_024.0)
-    } else {
-        format!("{:.1} MB", bytes as f64 / (1_024.0 * 1_024.0))
-    }
-}
-
-impl Clone for App {
-    fn clone(&self) -> Self {
-        Self {
-            screen: self.screen.clone(),
-            source_path: self.source_path.clone(),
-            strategy: self.strategy,
-            files: self.files.clone(),
-            selected_file: self.selected_file,
-            selected_files: self.selected_files.clone(),
-            scanning: self.scanning,
-            error: self.error.clone(),
-            export_state: self.export_state.clone(),
-        }
-    }
-}
