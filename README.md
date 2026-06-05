@@ -218,13 +218,3 @@ Every push to `main` and every pull request runs the full CI pipeline:
 4. `cargo build --workspace` — compilation
 
 Pushing a version tag (e.g. `git tag v1.0.0 && git push origin v1.0.0`) triggers the release workflow: CI runs again, release binaries are compiled, and a GitHub Release is created with a `.tar.gz` containing both binaries.
-
----
-
-## Roadmap
-
-- [ ] Windows support for device detection and GUI
-- [ ] EXT4 filesystem strategy
-- [ ] GIF and BMP signature support
-- [ ] Parallel scan benchmark and tuning
-- [ ] Deduplication when running multiple strategies on the same source
