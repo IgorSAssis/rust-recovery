@@ -37,6 +37,22 @@ pub struct ExtractedFile {
     pub bytes: Vec<u8>,
 }
 
+fn is_image_ext(ext: &str) -> bool {
+    matches!(ext, "jpg" | "jpeg" | "png")
+}
+
+impl FileInfo {
+    pub fn is_image(&self) -> bool {
+        is_image_ext(&self.extension)
+    }
+}
+
+impl ExtractedFile {
+    pub fn is_image(&self) -> bool {
+        is_image_ext(&self.extension)
+    }
+}
+
 /// A combined `Read + Seek` supertrait that makes [`crate::strategies::RecoveryStrategy`]
 /// object-safe.
 ///

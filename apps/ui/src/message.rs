@@ -33,4 +33,8 @@ pub enum Message {
     FolderPicked(Option<PathBuf>),
     ExportCompleted(usize),
     ExportFailed(String),
+
+    // ── console ───────────────────────────────────────────────────────────────
+    ToggleConsole,
+    LogDrainTick,
 }

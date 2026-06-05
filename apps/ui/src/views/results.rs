@@ -1,4 +1,4 @@
-use iced::widget::image::{Handle as ImageHandle, Image as IcedImage};
+use iced::widget::image::Image as IcedImage;
 use iced::widget::{
     button, checkbox, column, container, progress_bar, row, rule, scrollable, text,
 };
@@ -157,12 +157,10 @@ fn preview_panel(app: &App) -> Element<'_, Message> {
 
         Some(i) => {
             let file = &app.files[i];
-            let is_image = matches!(file.extension.as_str(), "jpg" | "jpeg" | "png");
 
-            if is_image {
-                let handle = ImageHandle::from_bytes(file.bytes.clone());
-                column![
-                    IcedImage::new(handle)
+            match &app.preview_handle {
+                Some(handle) => column![
+                    IcedImage::new(handle.clone())
                         .content_fit(ContentFit::Contain)
                         .width(Length::Fill)
                         .height(Length::Fill),
@@ -171,9 +169,9 @@ fn preview_panel(app: &App) -> Element<'_, Message> {
                 ]
                 .spacing(8)
                 .align_x(Alignment::Center)
-                .into()
-            } else {
-                container(
+                .into(),
+
+                None => container(
                     column![
                         text("📄").size(52),
                         text(&file.filename).size(13),
@@ -184,7 +182,7 @@ fn preview_panel(app: &App) -> Element<'_, Message> {
                     .align_x(Alignment::Center),
                 )
                 .center(Length::Fill)
-                .into()
+                .into(),
             }
         }
     };

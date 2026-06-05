@@ -6,7 +6,7 @@ use crate::locale::LocaleOption;
 use crate::message::Message;
 use crate::screen::Screen;
 
-use super::{devices, results, scan};
+use super::{console, devices, results, scan};
 
 pub fn view(app: &App) -> Element<'_, Message> {
     let content = match app.screen {
@@ -26,6 +26,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 .height(Length::Fill),
         ]
         .height(Length::Fill),
+        rule::horizontal(1),
+        console::view(app),
     ]
     .width(Length::Fill)
     .height(Length::Fill)

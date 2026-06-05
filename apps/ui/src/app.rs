@@ -1,9 +1,12 @@
 use std::collections::HashSet;
+use std::time::Duration;
 
 use device_detector::StorageDevice;
-use iced::{Element, Task};
+use iced::widget::image::Handle as ImageHandle;
+use iced::{Element, Subscription, Task, time};
 use recovery_engine::types::ExtractedFile;
 
+use crate::log_capture::{LogBuffer, LogEntry};
 use crate::message::{Message, StrategyKind};
 use crate::screen::Screen;
 use crate::locale::{self, Locale, Strings};
@@ -34,10 +37,17 @@ pub struct App {
     pub devices: Vec<StorageDevice>,
     pub detecting_devices: bool,
     pub locale: Locale,
+    pub log_buffer: LogBuffer,
+    pub log_entries: Vec<LogEntry>,
+    pub console_open: bool,
+    /// Cached image handle for the currently selected file.
+    /// Created once on FileSelected and reused across re-renders to avoid
+    /// uploading a new GPU texture on every view() call.
+    pub preview_handle: Option<ImageHandle>,
 }
 
-impl Default for App {
-    fn default() -> Self {
+impl App {
+    pub fn new(log_buffer: LogBuffer) -> Self {
         Self {
             screen: Screen::Scan,
             source_path: String::new(),
@@ -51,11 +61,13 @@ impl Default for App {
             devices: Vec::new(),
             detecting_devices: false,
             locale: Locale::detect(),
+            log_buffer,
+            log_entries: Vec::new(),
+            console_open: false,
+            preview_handle: None,
         }
     }
-}
 
-impl App {
     /// Handles a message and returns any follow-up task (e.g., spawning a scan).
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
@@ -124,6 +136,7 @@ impl App {
                         self.selected_file = None;
                         self.selected_files.clear();
                         self.export_state = ExportState::Idle;
+                        self.preview_handle = None;
                         self.screen = Screen::Results;
                     }
                     Err(err) => {
@@ -136,6 +149,7 @@ impl App {
             // ── results ───────────────────────────────────────────────────────
             Message::FileSelected(index) => {
                 self.selected_file = Some(index);
+                self.preview_handle = self.build_preview_handle(index);
                 Task::none()
             }
 
@@ -193,7 +207,24 @@ impl App {
                 self.export_state = ExportState::Failed(err);
                 Task::none()
             }
+
+            // ── console ───────────────────────────────────────────────────────
+            Message::ToggleConsole => {
+                self.console_open = !self.console_open;
+                Task::none()
+            }
+
+            Message::LogDrainTick => {
+                if let Ok(mut buf) = self.log_buffer.lock() {
+                    self.log_entries.extend(buf.drain(..));
+                }
+                Task::none()
+            }
         }
+    }
+
+    pub fn subscription(&self) -> Subscription<Message> {
+        time::every(Duration::from_millis(200)).map(|_| Message::LogDrainTick)
     }
 
     pub fn translations(&self) -> &'static Strings {
@@ -210,5 +241,14 @@ impl App {
     /// Returns true if all files are currently selected.
     pub fn all_selected(&self) -> bool {
         !self.files.is_empty() && self.selected_files.len() == self.files.len()
+    }
+
+    fn build_preview_handle(&self, index: usize) -> Option<ImageHandle> {
+        let file = self.files.get(index)?;
+        if file.is_image() {
+            Some(ImageHandle::from_bytes(file.bytes.clone()))
+        } else {
+            None
+        }
     }
 }

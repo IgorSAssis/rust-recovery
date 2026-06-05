@@ -93,6 +93,12 @@ pub struct Strings {
     // locale picker labels (translated names of each supported locale)
     pub locale_pt_br_label: &'static str,
     pub locale_en_label: &'static str,
+
+    // console
+    pub console_title: &'static str,
+    pub console_toggle_open: &'static str,
+    pub console_toggle_close: &'static str,
+    pub console_no_logs: &'static str,
 }
 
 impl Strings {
@@ -172,6 +178,11 @@ pub const PT_BR: Strings = Strings {
 
     locale_pt_br_label: "Português (Brasil)",
     locale_en_label: "Inglês",
+
+    console_title: "Console",
+    console_toggle_open: "Abrir Console",
+    console_toggle_close: "Fechar Console",
+    console_no_logs: "Nenhum log registrado ainda.",
 };
 
 pub const EN: Strings = Strings {
@@ -208,4 +219,9 @@ pub const EN: Strings = Strings {
 
     locale_pt_br_label: "Portuguese (Brazil)",
     locale_en_label: "English",
+
+    console_title: "Console",
+    console_toggle_open: "Open Console",
+    console_toggle_close: "Close Console",
+    console_no_logs: "No logs recorded yet.",
 };
