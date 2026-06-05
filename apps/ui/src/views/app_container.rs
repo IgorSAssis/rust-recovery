@@ -1,4 +1,4 @@
-use iced::widget::{button, column, container, pick_list, row, rule, text};
+use iced::widget::{button, column, container, pick_list, row, rule, stack, text};
 use iced::{Alignment, Element, Length};
 use iced_fonts::bootstrap;
 
@@ -7,7 +7,7 @@ use crate::locale::LocaleOption;
 use crate::message::Message;
 use crate::screen::Screen;
 
-use super::{console, devices, results, scan};
+use super::{console, devices, results, scan, toast};
 
 pub fn view(app: &App) -> Element<'_, Message> {
     let content = match app.screen {
@@ -16,7 +16,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         Screen::Results => results::view(app),
     };
 
-    column![
+    let layout = column![
         header(app),
         rule::horizontal(1),
         row![
@@ -31,8 +31,12 @@ pub fn view(app: &App) -> Element<'_, Message> {
         console::view(app),
     ]
     .width(Length::Fill)
-    .height(Length::Fill)
-    .into()
+    .height(Length::Fill);
+
+    stack![layout, toast::view(app)]
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .into()
 }
 
 fn header(app: &App) -> Element<'_, Message> {

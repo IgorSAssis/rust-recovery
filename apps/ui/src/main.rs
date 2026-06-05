@@ -1,6 +1,7 @@
 mod app;
 mod log_capture;
 mod message;
+mod notification;
 mod screen;
 mod locale;
 mod utils;

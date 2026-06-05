@@ -99,6 +99,9 @@ pub struct Strings {
     pub console_toggle_open: &'static str,
     pub console_toggle_close: &'static str,
     pub console_no_logs: &'static str,
+
+    // toast notification static strings
+    pub toast_export_cancelled: &'static str,
 }
 
 impl Strings {
@@ -132,15 +135,35 @@ impl Strings {
         }
     }
 
-    pub fn export_success(&self, count: usize) -> String {
+    pub fn toast_export_success(&self, count: usize) -> String {
         match self.locale {
-            Locale::PtBr => format!("✓ {} arquivo(s) exportado(s) com sucesso.", count),
-            Locale::En => format!("✓ {} file(s) exported successfully.", count),
+            Locale::PtBr => format!("{} arquivo(s) exportado(s) com sucesso.", count),
+            Locale::En => format!("{} file(s) exported successfully.", count),
         }
     }
 
-    pub fn export_error(&self, err: &str) -> String {
-        format!("✗ {}", err)
+    pub fn toast_export_failed(&self, err: impl Into<String>) -> String {
+        let err = err.into();
+        match self.locale {
+            Locale::PtBr => format!("Falha ao exportar: {}", err),
+            Locale::En => format!("Export failed: {}", err),
+        }
+    }
+
+    pub fn toast_scan_error(&self, err: impl Into<String>) -> String {
+        let err = err.into();
+        match self.locale {
+            Locale::PtBr => format!("Erro ao escanear: {}", err),
+            Locale::En => format!("Scan error: {}", err),
+        }
+    }
+
+    pub fn toast_devices_error(&self, err: impl Into<String>) -> String {
+        let err = err.into();
+        match self.locale {
+            Locale::PtBr => format!("Erro ao detectar dispositivos: {}", err),
+            Locale::En => format!("Device detection failed: {}", err),
+        }
     }
 }
 
@@ -183,6 +206,8 @@ pub const PT_BR: Strings = Strings {
     console_toggle_open: "Abrir Console",
     console_toggle_close: "Fechar Console",
     console_no_logs: "Nenhum log registrado ainda.",
+
+    toast_export_cancelled: "Exportação cancelada.",
 };
 
 pub const EN: Strings = Strings {
@@ -224,4 +249,6 @@ pub const EN: Strings = Strings {
     console_toggle_open: "Open Console",
     console_toggle_close: "Close Console",
     console_no_logs: "No logs recorded yet.",
+
+    toast_export_cancelled: "Export cancelled.",
 };

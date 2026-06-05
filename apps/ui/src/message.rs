@@ -37,4 +37,7 @@ pub enum Message {
     // ── console ───────────────────────────────────────────────────────────────
     ToggleConsole,
     LogDrainTick,
+
+    // ── notifications ─────────────────────────────────────────────────────────
+    DismissNotification(u64),
 }

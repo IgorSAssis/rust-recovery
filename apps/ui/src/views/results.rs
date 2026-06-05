@@ -1,8 +1,6 @@
 use iced::widget::image::Image as IcedImage;
-use iced::widget::{
-    button, checkbox, column, container, progress_bar, row, rule, scrollable, text,
-};
-use iced::{Alignment, Color, ContentFit, Element, Length};
+use iced::widget::{button, checkbox, column, container, row, rule, scrollable, text};
+use iced::{Alignment, ContentFit, Element, Length};
 use iced_fonts::bootstrap;
 
 use crate::app::{App, ExportState};
@@ -85,31 +83,9 @@ fn build_export_bar(app: &App) -> Element<'_, Message> {
         .spacing(6)
         .align_y(Alignment::Center)
         .into(),
-        ExportState::Exporting => column![
-            row![
-                bootstrap::arrow_repeat().size(13),
-                text(translations.exporting).size(13),
-            ]
-            .spacing(6)
-            .align_y(Alignment::Center),
-            container(progress_bar(0.0..=1.0_f32, 0.5_f32)).width(200),
-        ]
-        .spacing(4)
-        .into(),
-        ExportState::Done(n) => row![
-            bootstrap::check_circle().size(13).color(Color::from_rgb(0.2, 0.8, 0.2)),
-            text(translations.export_success(*n))
-                .size(13)
-                .color(Color::from_rgb(0.2, 0.8, 0.2)),
-        ]
-        .spacing(6)
-        .align_y(Alignment::Center)
-        .into(),
-        ExportState::Failed(err) => row![
-            bootstrap::x_circle().size(13).color(Color::from_rgb(0.9, 0.2, 0.2)),
-            text(translations.export_error(err))
-                .size(13)
-                .color(Color::from_rgb(0.9, 0.2, 0.2)),
+        ExportState::Exporting => row![
+            bootstrap::arrow_repeat().size(13),
+            text(translations.exporting).size(13),
         ]
         .spacing(6)
         .align_y(Alignment::Center)

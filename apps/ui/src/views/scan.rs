@@ -35,8 +35,6 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     let status: Element<Message> = if app.scanning {
         text(translations.scanning_status).size(14).into()
-    } else if let Some(err) = &app.error {
-        text(err.as_str()).size(14).into()
     } else {
         text("").size(14).into()
     };

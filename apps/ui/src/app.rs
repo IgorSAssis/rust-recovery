@@ -6,10 +6,11 @@ use iced::widget::image::Handle as ImageHandle;
 use iced::{Element, Subscription, Task, time};
 use recovery_engine::types::ExtractedFile;
 
+use crate::locale::{self, Locale, Strings};
 use crate::log_capture::{LogBuffer, LogEntry};
 use crate::message::{Message, StrategyKind};
+use crate::notification::Notification;
 use crate::screen::Screen;
-use crate::locale::{self, Locale, Strings};
 use crate::views;
 
 /// State of the export operation.
@@ -18,8 +19,6 @@ pub enum ExportState {
     Idle,
     Picking,
     Exporting,
-    Done(usize),
-    Failed(String),
 }
 
 /// The complete application state.
@@ -32,7 +31,6 @@ pub struct App {
     pub selected_file: Option<usize>,
     pub selected_files: HashSet<usize>,
     pub scanning: bool,
-    pub error: Option<String>,
     pub export_state: ExportState,
     pub devices: Vec<StorageDevice>,
     pub detecting_devices: bool,
@@ -40,10 +38,9 @@ pub struct App {
     pub log_buffer: LogBuffer,
     pub log_entries: Vec<LogEntry>,
     pub console_open: bool,
-    /// Cached image handle for the currently selected file.
-    /// Created once on FileSelected and reused across re-renders to avoid
-    /// uploading a new GPU texture on every view() call.
     pub preview_handle: Option<ImageHandle>,
+    pub notifications: Vec<Notification>,
+    next_notification_id: u64,
 }
 
 impl App {
@@ -56,7 +53,6 @@ impl App {
             selected_file: None,
             selected_files: HashSet::new(),
             scanning: false,
-            error: None,
             export_state: ExportState::Idle,
             devices: Vec::new(),
             detecting_devices: false,
@@ -65,10 +61,11 @@ impl App {
             log_entries: Vec::new(),
             console_open: false,
             preview_handle: None,
+            notifications: Vec::new(),
+            next_notification_id: 0,
         }
     }
 
-    /// Handles a message and returns any follow-up task (e.g., spawning a scan).
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             // ── navigation ────────────────────────────────────────────────────
@@ -85,14 +82,21 @@ impl App {
             // ── devices ───────────────────────────────────────────────────────
             Message::DetectDevicesPressed => {
                 self.detecting_devices = true;
-                Task::perform(crate::worker::Worker::detect_devices(), Message::DevicesDetected)
+                Task::perform(
+                    crate::worker::Worker::detect_devices(),
+                    Message::DevicesDetected,
+                )
             }
 
             Message::DevicesDetected(result) => {
                 self.detecting_devices = false;
                 match result {
                     Ok(devices) => self.devices = devices,
-                    Err(err) => self.error = Some(err),
+                    Err(err) => {
+                        let id = self.next_id();
+                        let msg = self.translations().toast_devices_error(err);
+                        self.push_notification(Notification::error(id, msg));
+                    }
                 }
                 Task::none()
             }
@@ -106,7 +110,6 @@ impl App {
             // ── scan ──────────────────────────────────────────────────────────
             Message::SourcePathChanged(path) => {
                 self.source_path = path;
-                self.error = None;
                 Task::none()
             }
 
@@ -117,11 +120,12 @@ impl App {
 
             Message::ScanPressed => {
                 if self.source_path.trim().is_empty() {
-                    self.error = Some(self.translations().scan_error_no_source.to_string());
+                    let id = self.next_id();
+                    let msg = self.translations().scan_error_no_source;
+                    self.push_notification(Notification::error(id, msg));
                     return Task::none();
                 }
                 self.scanning = true;
-                self.error = None;
                 Task::perform(
                     crate::worker::Worker::run_scan(self.source_path.clone(), self.strategy),
                     Message::ScanCompleted,
@@ -140,7 +144,9 @@ impl App {
                         self.screen = Screen::Results;
                     }
                     Err(err) => {
-                        self.error = Some(err);
+                        let id = self.next_id();
+                        let msg = self.translations().toast_scan_error(err);
+                        self.push_notification(Notification::error(id, msg));
                     }
                 }
                 Task::none()
@@ -159,7 +165,6 @@ impl App {
                 } else {
                     self.selected_files.insert(index);
                 }
-                self.export_state = ExportState::Idle;
                 Task::none()
             }
 
@@ -169,18 +174,23 @@ impl App {
                 } else {
                     self.selected_files = (0..self.files.len()).collect();
                 }
-                self.export_state = ExportState::Idle;
                 Task::none()
             }
 
             Message::ExportPressed => {
                 self.export_state = ExportState::Picking;
                 let title = self.translations().export_folder_title;
-                Task::perform(crate::worker::Worker::pick_folder(title), Message::FolderPicked)
+                Task::perform(
+                    crate::worker::Worker::pick_folder(title),
+                    Message::FolderPicked,
+                )
             }
 
             Message::FolderPicked(None) => {
                 self.export_state = ExportState::Idle;
+                let id = self.next_id();
+                let msg = self.translations().toast_export_cancelled;
+                self.push_notification(Notification::info(id, msg));
                 Task::none()
             }
 
@@ -198,13 +208,19 @@ impl App {
             }
 
             Message::ExportCompleted(n) => {
-                self.export_state = ExportState::Done(n);
+                self.export_state = ExportState::Idle;
                 self.selected_files.clear();
+                let id = self.next_id();
+                let msg = self.translations().toast_export_success(n);
+                self.push_notification(Notification::success(id, msg));
                 Task::none()
             }
 
             Message::ExportFailed(err) => {
-                self.export_state = ExportState::Failed(err);
+                self.export_state = ExportState::Idle;
+                let id = self.next_id();
+                let msg = self.translations().toast_export_failed(err);
+                self.push_notification(Notification::error(id, msg));
                 Task::none()
             }
 
@@ -218,6 +234,13 @@ impl App {
                 if let Ok(mut buf) = self.log_buffer.lock() {
                     self.log_entries.extend(buf.drain(..));
                 }
+                self.notifications.retain(|n| !n.is_expired());
+                Task::none()
+            }
+
+            // ── notifications ─────────────────────────────────────────────────
+            Message::DismissNotification(id) => {
+                self.notifications.retain(|n| n.id != id);
                 Task::none()
             }
         }
@@ -238,9 +261,18 @@ impl App {
         views::app_container::view(self)
     }
 
-    /// Returns true if all files are currently selected.
     pub fn all_selected(&self) -> bool {
         !self.files.is_empty() && self.selected_files.len() == self.files.len()
+    }
+
+    fn next_id(&mut self) -> u64 {
+        let id = self.next_notification_id;
+        self.next_notification_id += 1;
+        id
+    }
+
+    fn push_notification(&mut self, notification: Notification) {
+        self.notifications.push(notification);
     }
 
     fn build_preview_handle(&self, index: usize) -> Option<ImageHandle> {
