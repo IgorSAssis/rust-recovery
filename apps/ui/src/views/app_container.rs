@@ -2,7 +2,7 @@ use iced::widget::{button, column, container, pick_list, row, rule, text};
 use iced::{Alignment, Element, Length};
 
 use crate::app::App;
-use crate::locale::Locale;
+use crate::locale::LocaleOption;
 use crate::message::Message;
 use crate::screen::Screen;
 
@@ -35,7 +35,16 @@ pub fn view(app: &App) -> Element<'_, Message> {
 fn header(app: &App) -> Element<'_, Message> {
     let translations = app.translations();
 
-    let lang_selector = pick_list(Locale::ALL, Some(app.locale), Message::LanguageChanged);
+    let locale_options = translations.locale_options();
+    let selected_locale = LocaleOption {
+        locale: app.locale,
+        label: translations.locale_label(app.locale),
+    };
+    let lang_selector = pick_list(
+        locale_options,
+        Some(selected_locale),
+        |opt: LocaleOption| Message::LanguageChanged(opt.locale),
+    );
 
     container(
         row![

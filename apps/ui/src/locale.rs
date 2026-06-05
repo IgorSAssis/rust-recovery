@@ -29,12 +29,25 @@ impl Locale {
     }
 }
 
-impl std::fmt::Display for Locale {
+/// A locale paired with its translated display label, used by the language picker.
+///
+/// `PartialEq` compares only the `locale` field so that the picker can match
+/// the selected item even when the active language (and thus the label) changes.
+#[derive(Debug, Clone)]
+pub struct LocaleOption {
+    pub locale: Locale,
+    pub label: &'static str,
+}
+
+impl PartialEq for LocaleOption {
+    fn eq(&self, other: &Self) -> bool {
+        self.locale == other.locale
+    }
+}
+
+impl std::fmt::Display for LocaleOption {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Locale::PtBr => write!(f, "Português (Brasil)"),
-            Locale::En => write!(f, "Inglês"),
-        }
+        write!(f, "{}", self.label)
     }
 }
 
@@ -76,9 +89,29 @@ pub struct Strings {
 
     // worker
     pub export_folder_title: &'static str,
+
+    // locale picker labels (translated names of each supported locale)
+    pub locale_pt_br_label: &'static str,
+    pub locale_en_label: &'static str,
 }
 
 impl Strings {
+    /// Returns the translated display label for `locale` in the current language.
+    pub fn locale_label(&self, locale: Locale) -> &'static str {
+        match locale {
+            Locale::PtBr => self.locale_pt_br_label,
+            Locale::En => self.locale_en_label,
+        }
+    }
+
+    /// Returns all locale options with labels translated to the current language.
+    pub fn locale_options(&self) -> Vec<LocaleOption> {
+        Locale::ALL
+            .iter()
+            .map(|&l| LocaleOption { locale: l, label: self.locale_label(l) })
+            .collect()
+    }
+
     pub fn files_found(&self, count: usize, strategy: &str) -> String {
         match self.locale {
             Locale::PtBr => format!("Foram encontrados {} arquivo(s) via {}.", count, strategy),
@@ -136,6 +169,9 @@ pub const PT_BR: Strings = Strings {
     select_to_preview: "Selecione um arquivo para visualizar",
 
     export_folder_title: "Selecionar pasta de saída para os arquivos recuperados",
+
+    locale_pt_br_label: "Português (Brasil)",
+    locale_en_label: "Inglês",
 };
 
 pub const EN: Strings = Strings {
@@ -169,4 +205,7 @@ pub const EN: Strings = Strings {
     select_to_preview: "Select a file to preview",
 
     export_folder_title: "Select output folder for recovered files",
+
+    locale_pt_br_label: "Portuguese (Brazil)",
+    locale_en_label: "English",
 };
