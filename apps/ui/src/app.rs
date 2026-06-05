@@ -37,6 +37,7 @@ pub struct App {
     pub locale: Locale,
     pub log_buffer: LogBuffer,
     pub log_entries: Vec<LogEntry>,
+    pub sidebar_expanded: bool,
     pub console_open: bool,
     pub preview_handle: Option<ImageHandle>,
     pub notifications: Vec<Notification>,
@@ -59,6 +60,7 @@ impl App {
             locale: Locale::detect(),
             log_buffer,
             log_entries: Vec::new(),
+            sidebar_expanded: true,
             console_open: false,
             preview_handle: None,
             notifications: Vec::new(),
@@ -221,6 +223,12 @@ impl App {
                 let id = self.next_id();
                 let msg = self.translations().toast_export_failed(err);
                 self.push_notification(Notification::error(id, msg));
+                Task::none()
+            }
+
+            // ── sidebar ───────────────────────────────────────────────────────
+            Message::ToggleSidebar => {
+                self.sidebar_expanded = !self.sidebar_expanded;
                 Task::none()
             }
 

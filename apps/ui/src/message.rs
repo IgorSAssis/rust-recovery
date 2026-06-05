@@ -34,6 +34,9 @@ pub enum Message {
     ExportCompleted(usize),
     ExportFailed(String),
 
+    // ── sidebar ───────────────────────────────────────────────────────────────
+    ToggleSidebar,
+
     // ── console ───────────────────────────────────────────────────────────────
     ToggleConsole,
     LogDrainTick,
