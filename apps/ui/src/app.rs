@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use device_detector::StorageDevice;
 use iced::{Element, Task};
 use recovery_engine::types::ExtractedFile;
 
@@ -29,6 +30,8 @@ pub struct App {
     pub scanning: bool,
     pub error: Option<String>,
     pub export_state: ExportState,
+    pub devices: Vec<StorageDevice>,
+    pub detecting_devices: bool,
 }
 
 impl Default for App {
@@ -43,6 +46,8 @@ impl Default for App {
             scanning: false,
             error: None,
             export_state: ExportState::Idle,
+            devices: Vec::new(),
+            detecting_devices: false,
         }
     }
 }
@@ -51,6 +56,34 @@ impl App {
     /// Handles a message and returns any follow-up task (e.g., spawning a scan).
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
+            // ── navigation ────────────────────────────────────────────────────
+            Message::NavigateTo(screen) => {
+                self.screen = screen;
+                Task::none()
+            }
+
+            // ── devices ───────────────────────────────────────────────────────
+            Message::DetectDevicesPressed => {
+                self.detecting_devices = true;
+                Task::perform(crate::worker::Worker::detect_devices(), Message::DevicesDetected)
+            }
+
+            Message::DevicesDetected(result) => {
+                self.detecting_devices = false;
+                match result {
+                    Ok(devices) => self.devices = devices,
+                    Err(err) => self.error = Some(err),
+                }
+                Task::none()
+            }
+
+            Message::DeviceSelected(path) => {
+                self.source_path = path.to_string_lossy().to_string();
+                self.screen = Screen::Scan;
+                Task::none()
+            }
+
+            // ── scan ──────────────────────────────────────────────────────────
             Message::SourcePathChanged(path) => {
                 self.source_path = path;
                 self.error = None;
@@ -70,7 +103,7 @@ impl App {
                 self.scanning = true;
                 self.error = None;
                 Task::perform(
-                    crate::worker::run_scan(self.source_path.clone(), self.strategy),
+                    crate::worker::Worker::run_scan(self.source_path.clone(), self.strategy),
                     Message::ScanCompleted,
                 )
             }
@@ -92,6 +125,7 @@ impl App {
                 Task::none()
             }
 
+            // ── results ───────────────────────────────────────────────────────
             Message::FileSelected(index) => {
                 self.selected_file = Some(index);
                 Task::none()
@@ -119,7 +153,7 @@ impl App {
 
             Message::ExportPressed => {
                 self.export_state = ExportState::Picking;
-                Task::perform(crate::worker::pick_folder(), Message::FolderPicked)
+                Task::perform(crate::worker::Worker::pick_folder(), Message::FolderPicked)
             }
 
             Message::FolderPicked(None) => {
@@ -131,12 +165,13 @@ impl App {
                 self.export_state = ExportState::Exporting;
                 let files = self.files.clone();
                 let selected = self.selected_files.clone();
-                Task::perform(crate::worker::run_export(files, selected, path), |result| {
-                    match result {
+                Task::perform(
+                    crate::worker::Worker::run_export(files, selected, path),
+                    |result| match result {
                         Ok(n) => Message::ExportCompleted(n),
                         Err(e) => Message::ExportFailed(e),
-                    }
-                })
+                    },
+                )
             }
 
             Message::ExportCompleted(n) => {
@@ -149,25 +184,11 @@ impl App {
                 self.export_state = ExportState::Failed(err);
                 Task::none()
             }
-
-            Message::BackToScan => {
-                self.screen = Screen::Scan;
-                self.files.clear();
-                self.selected_file = None;
-                self.selected_files.clear();
-                self.export_state = ExportState::Idle;
-                self.error = None;
-                Task::none()
-            }
         }
     }
 
     pub fn view(&self) -> Element<'_, Message> {
-        match self.screen {
-            Screen::Devices => iced::widget::text("").into(),
-            Screen::Scan => views::scan::view(self),
-            Screen::Results => views::results::view(self),
-        }
+        views::app_container::view(self)
     }
 
     /// Returns true if all files are currently selected.
@@ -175,4 +196,3 @@ impl App {
         !self.files.is_empty() && self.selected_files.len() == self.files.len()
     }
 }
-

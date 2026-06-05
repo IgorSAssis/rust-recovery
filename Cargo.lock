@@ -4350,6 +4350,7 @@ dependencies = [
 name = "ui"
 version = "0.1.0"
 dependencies = [
+ "device_detector",
  "file_carver",
  "iced",
  "recovery_engine",

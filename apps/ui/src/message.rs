@@ -1,26 +1,34 @@
 use std::path::PathBuf;
 
+use device_detector::StorageDevice;
 use recovery_engine::types::ExtractedFile;
 pub use recovery_engine::types::StrategyKind;
+
+use crate::screen::Screen;
 
 /// All possible actions that can change the application state.
 #[derive(Debug, Clone)]
 pub enum Message {
+    // ── navigation ────────────────────────────────────────────────────────────
+    NavigateTo(Screen),
+
+    // ── devices ───────────────────────────────────────────────────────────────
+    DetectDevicesPressed,
+    DevicesDetected(Result<Vec<StorageDevice>, String>),
+    DeviceSelected(PathBuf),
+
+    // ── scan ──────────────────────────────────────────────────────────────────
     SourcePathChanged(String),
     StrategyChanged(StrategyKind),
     ScanPressed,
-    /// Background scan finished — either a list of files or an error string.
     ScanCompleted(Result<Vec<ExtractedFile>, String>),
+
+    // ── results ───────────────────────────────────────────────────────────────
     FileSelected(usize),
     FileToggled(usize),
     ToggleAll,
     ExportPressed,
-    /// Native folder picker returned a path (or `None` if cancelled).
     FolderPicked(Option<PathBuf>),
-    /// Export worker finished — carries number of files written.
     ExportCompleted(usize),
-    /// Export worker failed — carries human-readable error.
     ExportFailed(String),
-    BackToScan,
 }
-

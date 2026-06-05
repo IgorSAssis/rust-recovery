@@ -5,9 +5,6 @@ use crate::app::App;
 use crate::message::{Message, StrategyKind};
 
 pub fn view(app: &App) -> Element<'_, Message> {
-    let title = text("RustRecover - Scan Screen").size(32);
-    let subtitle = text("File Recovery Tool").size(14);
-
     let source_label = text("Source path:");
     let source_input = text_input("/dev/sdb1  or  /path/to/image.img", &app.source_path)
         .on_input(Message::SourcePathChanged)
@@ -42,9 +39,6 @@ pub fn view(app: &App) -> Element<'_, Message> {
     };
 
     let content = column![
-        title,
-        subtitle,
-        text(""),
         source_label,
         source_input,
         text(""),

@@ -1,50 +1,44 @@
 use iced::widget::image::{Handle as ImageHandle, Image as IcedImage};
-use iced::widget::{button, checkbox, column, container, progress_bar, row, scrollable, text};
+use iced::widget::{
+    button, checkbox, column, container, progress_bar, row, rule, scrollable, text,
+};
 use iced::{Alignment, Color, ContentFit, Element, Length};
 
 use crate::app::{App, ExportState};
-use crate::utils::format_size;
 use crate::message::{Message, StrategyKind};
+use crate::utils::format_size;
 
 pub fn view(app: &App) -> Element<'_, Message> {
-    let header = build_header(app);
-    let export_bar = build_export_bar(app);
-    let body = row![file_list(app), preview_panel(app)]
-        .spacing(0)
-        .height(Length::Fill);
+    let left = container(
+        column![build_summary(app), build_export_bar(app), file_list(app)]
+            .spacing(0)
+            .width(Length::Fill)
+            .height(Length::Fill),
+    )
+    .width(Length::FillPortion(1))
+    .height(Length::Fill)
+    .padding(16);
 
-    column![header, export_bar, body]
+    row![left, rule::vertical(1), preview_panel(app)]
         .spacing(0)
         .width(Length::Fill)
         .height(Length::Fill)
-        .padding(16)
         .into()
 }
 
-// ── Header ───────────────────────────────────────────────────────────────────
+// ── Summary ───────────────────────────────────────────────────────────────────
 
-fn build_header(app: &App) -> Element<'_, Message> {
-    let back_btn = button(text("← Back").size(14)).on_press(Message::BackToScan);
-    let heading = text("Recovered Files").size(24);
+fn build_summary(app: &App) -> Element<'_, Message> {
     let strategy_label = match app.strategy {
         StrategyKind::Carver => "carver",
         StrategyKind::Fat32 => "fat32",
     };
-    let summary = text(format!(
+    text(format!(
         "Found {} file(s) via {}.",
         app.files.len(),
         strategy_label,
     ))
-    .size(13);
-
-    column![
-        row![back_btn, heading]
-            .spacing(16)
-            .align_y(Alignment::Center),
-        summary,
-        text(""),
-    ]
-    .spacing(6)
+    .size(13)
     .into()
 }
 
@@ -194,7 +188,7 @@ fn preview_panel(app: &App) -> Element<'_, Message> {
     };
 
     container(content)
-        .width(Length::FillPortion(1))
+        .width(Length::FillPortion(2))
         .height(Length::Fill)
         .padding(16)
         .into()

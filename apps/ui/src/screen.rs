@@ -1,6 +1,5 @@
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Screen {
-    #[allow(dead_code)]
     Devices,
     Scan,
     Results,
