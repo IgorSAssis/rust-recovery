@@ -50,10 +50,8 @@ impl Command for ScanCommand {
         );
         println!();
 
-        let engine = RecoveryEngine::for_carver(
-            SUPPORTED_SIGNATURES.iter().collect(),
-            self.args.chunk_size,
-        );
+        let engine =
+            RecoveryEngine::for_carver(SUPPORTED_SIGNATURES.iter().collect(), self.args.chunk_size);
 
         let file_infos = engine.scan(&mut source).context("Scan failed")?;
 

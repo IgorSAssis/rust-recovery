@@ -41,15 +41,21 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     let scan_btn = if app.scanning {
         button(
-            row![bootstrap::hourglass_split().size(14), text(translations.scanning_btn).size(16)]
-                .spacing(8)
-                .align_y(Alignment::Center),
+            row![
+                bootstrap::hourglass_split().size(14),
+                text(translations.scanning_btn).size(16)
+            ]
+            .spacing(8)
+            .align_y(Alignment::Center),
         )
     } else {
         button(
-            row![bootstrap::search().size(14), text(translations.scan_btn).size(16)]
-                .spacing(8)
-                .align_y(Alignment::Center),
+            row![
+                bootstrap::search().size(14),
+                text(translations.scan_btn).size(16)
+            ]
+            .spacing(8)
+            .align_y(Alignment::Center),
         )
         .on_press(Message::ScanPressed)
     };

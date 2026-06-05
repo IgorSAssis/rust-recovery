@@ -110,10 +110,12 @@ impl RecoveryStrategy for FileCarverStrategy {
 
         info!("starting file carver scan");
 
-        let scanner = self.signatures.iter().fold(
-            Scanner::new().with_chunk_size(self.chunk_size),
-            |s, sig| s.add_signature(sig),
-        );
+        let scanner = self
+            .signatures
+            .iter()
+            .fold(Scanner::new().with_chunk_size(self.chunk_size), |s, sig| {
+                s.add_signature(sig)
+            });
 
         let carved = scanner.scan(source)?;
 

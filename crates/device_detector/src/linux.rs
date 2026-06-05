@@ -44,9 +44,8 @@ impl LinuxDeviceDetector {
 
             let dev_name = entry.file_name().to_string_lossy().into_owned();
 
-            let size_bytes = Self::parse_size_bytes(&Self::read_sysfs_field(
-                &sys_path.join("size"),
-            )?)?;
+            let size_bytes =
+                Self::parse_size_bytes(&Self::read_sysfs_field(&sys_path.join("size"))?)?;
 
             let removable =
                 Self::parse_removable(&Self::read_sysfs_field(&sys_path.join("removable"))?);

@@ -60,7 +60,7 @@ impl App {
             locale: Locale::detect(),
             log_buffer,
             log_entries: Vec::new(),
-            sidebar_expanded: true,
+            sidebar_expanded: false,
             console_open: false,
             preview_handle: None,
             notifications: Vec::new(),

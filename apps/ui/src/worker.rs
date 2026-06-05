@@ -54,13 +54,9 @@ impl Worker {
     /// Uses the synchronous `rfd::FileDialog` inside `spawn_blocking` to avoid
     /// runtime conflicts with the `ashpd` XDG-portal backend on Linux.
     pub async fn pick_folder(title: &'static str) -> Option<PathBuf> {
-        tokio::task::spawn_blocking(move || {
-            rfd::FileDialog::new()
-                .set_title(title)
-                .pick_folder()
-        })
-        .await
-        .unwrap_or(None)
+        tokio::task::spawn_blocking(move || rfd::FileDialog::new().set_title(title).pick_folder())
+            .await
+            .unwrap_or(None)
     }
 
     /// Writes the selected files to `output_dir`, returning the number of files written.

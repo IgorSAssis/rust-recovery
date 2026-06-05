@@ -8,7 +8,10 @@ pub enum CarverError {
     SignatureNotFound { kind: FileKind },
 
     #[error("Footer not found for '{kind}' (header at offset {header_offset})")]
-    FooterNotFound { kind: FileKind, header_offset: usize },
+    FooterNotFound {
+        kind: FileKind,
+        header_offset: usize,
+    },
 
     #[error("Invalid file range: start={start}, end={end} (end must be greater than start)")]
     InvalidRange { start: u64, end: u64 },

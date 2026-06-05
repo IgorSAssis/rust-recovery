@@ -14,9 +14,15 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let translations = app.translations();
 
     let (toggle_icon, toggle_label) = if app.console_open {
-        (bootstrap::chevron_down().size(12), translations.console_toggle_close)
+        (
+            bootstrap::chevron_down().size(12),
+            translations.console_toggle_close,
+        )
     } else {
-        (bootstrap::chevron_up().size(12), translations.console_toggle_open)
+        (
+            bootstrap::chevron_up().size(12),
+            translations.console_toggle_open,
+        )
     };
 
     let toggle_btn = button(
@@ -56,15 +62,10 @@ pub fn view(app: &App) -> Element<'_, Message> {
             .map(|entry| entry_row(entry))
             .collect();
 
-        scrollable(
-            column(rows)
-                .spacing(2)
-                .padding([4, 12])
-                .width(Length::Fill),
-        )
-        .height(CONSOLE_HEIGHT)
-        .anchor_bottom()
-        .into()
+        scrollable(column(rows).spacing(2).padding([4, 12]).width(Length::Fill))
+            .height(CONSOLE_HEIGHT)
+            .anchor_bottom()
+            .into()
     };
 
     container(column![header, body]).width(Length::Fill).into()
@@ -81,7 +82,9 @@ fn entry_row(entry: &crate::log_capture::LogEntry) -> Element<'_, Message> {
 
     let level_icon = match entry.level {
         Level::ERROR => bootstrap::x_circle().size(11).color(level_color),
-        Level::WARN => bootstrap::exclamation_triangle().size(11).color(level_color),
+        Level::WARN => bootstrap::exclamation_triangle()
+            .size(11)
+            .color(level_color),
         Level::INFO => bootstrap::info_circle().size(11).color(level_color),
         Level::DEBUG => bootstrap::bug().size(11).color(level_color),
         Level::TRACE => bootstrap::dot().size(11).color(level_color),
@@ -100,7 +103,9 @@ fn entry_row(entry: &crate::log_capture::LogEntry) -> Element<'_, Message> {
         .unwrap_or_else(|_| "--:--:--".to_string());
 
     row![
-        text(timestamp).size(11).color(Color::from_rgb(0.5, 0.5, 0.5)),
+        text(timestamp)
+            .size(11)
+            .color(Color::from_rgb(0.5, 0.5, 0.5)),
         level_icon,
         text(format!("{} — {}", entry.target, entry.message)).size(11),
     ]

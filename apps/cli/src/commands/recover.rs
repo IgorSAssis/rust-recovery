@@ -31,7 +31,7 @@ impl From<StrategyArg> for StrategyKind {
     fn from(arg: StrategyArg) -> Self {
         match arg {
             StrategyArg::Carver => StrategyKind::Carver,
-            StrategyArg::Fat32  => StrategyKind::Fat32,
+            StrategyArg::Fat32 => StrategyKind::Fat32,
         }
     }
 }

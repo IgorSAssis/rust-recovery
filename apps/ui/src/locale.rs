@@ -117,7 +117,10 @@ impl Strings {
     pub fn locale_options(&self) -> Vec<LocaleOption> {
         Locale::ALL
             .iter()
-            .map(|&l| LocaleOption { locale: l, label: self.locale_label(l) })
+            .map(|&l| LocaleOption {
+                locale: l,
+                label: self.locale_label(l),
+            })
             .collect()
     }
 

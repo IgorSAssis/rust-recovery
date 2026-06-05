@@ -82,8 +82,7 @@ fn scan_without_source_returns_error() {
 
 #[test]
 fn recover_without_output_returns_error() {
-    let result =
-        Cli::try_parse_from(["rustrecovery", "recover", "--source", "disk.img"]);
+    let result = Cli::try_parse_from(["rustrecovery", "recover", "--source", "disk.img"]);
     assert!(result.is_err());
 }
 

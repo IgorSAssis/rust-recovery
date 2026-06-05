@@ -172,9 +172,17 @@ fn recover_bytes_start_with_correct_header() {
 
     let extracted = engine.recover(&mut source).unwrap();
 
-    assert!(extracted[0].bytes.starts_with(JPEG_SIGNATURE.header_pattern));
+    assert!(
+        extracted[0]
+            .bytes
+            .starts_with(JPEG_SIGNATURE.header_pattern)
+    );
     assert!(extracted[1].bytes.starts_with(PNG_SIGNATURE.header_pattern));
-    assert!(extracted[2].bytes.starts_with(JPEG_SIGNATURE.header_pattern));
+    assert!(
+        extracted[2]
+            .bytes
+            .starts_with(JPEG_SIGNATURE.header_pattern)
+    );
 }
 
 #[test]
@@ -210,8 +218,9 @@ fn temp_output_dir(suffix: &str) -> std::path::PathBuf {
 #[test]
 fn save_all_creates_output_directory_and_files() {
     let output_dir = temp_output_dir("save_all");
-    let engine = RecoveryEngine::for_carver(SUPPORTED_SIGNATURES.iter().collect(), DEFAULT_CHUNK_SIZE)
-        .with_output_dir(&output_dir);
+    let engine =
+        RecoveryEngine::for_carver(SUPPORTED_SIGNATURES.iter().collect(), DEFAULT_CHUNK_SIZE)
+            .with_output_dir(&output_dir);
 
     let extracted = vec![
         ExtractedFile {
@@ -236,8 +245,9 @@ fn save_all_creates_output_directory_and_files() {
 #[test]
 fn save_all_writes_correct_bytes_to_disk() {
     let output_dir = temp_output_dir("save_bytes");
-    let engine = RecoveryEngine::for_carver(SUPPORTED_SIGNATURES.iter().collect(), DEFAULT_CHUNK_SIZE)
-        .with_output_dir(&output_dir);
+    let engine =
+        RecoveryEngine::for_carver(SUPPORTED_SIGNATURES.iter().collect(), DEFAULT_CHUNK_SIZE)
+            .with_output_dir(&output_dir);
 
     let expected_bytes = vec![0x01, 0x02, 0x03, 0x04];
     let extracted = vec![ExtractedFile {
@@ -254,7 +264,8 @@ fn save_all_writes_correct_bytes_to_disk() {
 
 #[test]
 fn save_all_without_output_dir_returns_no_output_dir_error() {
-    let engine = RecoveryEngine::for_carver(SUPPORTED_SIGNATURES.iter().collect(), DEFAULT_CHUNK_SIZE);
+    let engine =
+        RecoveryEngine::for_carver(SUPPORTED_SIGNATURES.iter().collect(), DEFAULT_CHUNK_SIZE);
     let extracted = vec![ExtractedFile {
         filename: "recovered_0.jpg".to_string(),
         extension: "jpg".to_string(),

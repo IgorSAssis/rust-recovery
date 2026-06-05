@@ -23,10 +23,7 @@
 /// ```
 ///
 /// See [`build_image_with_data`] to also write raw bytes into specific clusters.
-pub fn build_image(
-    fat_entries: &[(u32, u32)],
-    dir_entries: &[([u8; 32], u32)],
-) -> Vec<u8> {
+pub fn build_image(fat_entries: &[(u32, u32)], dir_entries: &[([u8; 32], u32)]) -> Vec<u8> {
     build_image_with_data(fat_entries, dir_entries, &[])
 }
 

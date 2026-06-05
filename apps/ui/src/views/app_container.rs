@@ -13,6 +13,7 @@ use super::{console, devices, results, scan, toast};
 const SIDEBAR_EXPANDED_WIDTH: f32 = 220.0;
 const SIDEBAR_COLLAPSED_WIDTH: f32 = 56.0;
 const TOGGLE_BTN_SIZE: f32 = 22.0;
+const NAV_BTN_ICON_SIZE: u32 = 34;
 
 pub fn view(app: &App) -> Element<'_, Message> {
     let screen_content = match app.screen {
@@ -71,9 +72,7 @@ fn sidebar_toggle_overlay(app: &App, sidebar_width: f32) -> Element<'_, Message>
         .style(|theme: &iced::Theme, status| {
             let palette = theme.extended_palette();
             let bg_color = match status {
-                button::Status::Hovered | button::Status::Pressed => {
-                    palette.background.weak.color
-                }
+                button::Status::Hovered | button::Status::Pressed => palette.background.weak.color,
                 _ => palette.background.base.color,
             };
             button::Style {
@@ -94,12 +93,10 @@ fn sidebar_toggle_overlay(app: &App, sidebar_width: f32) -> Element<'_, Message>
     // straddling the rule::vertical that sits right after the sidebar.
     let left_spacer_width = sidebar_width - (TOGGLE_BTN_SIZE / 2.0);
 
-    container(
-        row![
-            iced::widget::Space::new().width(left_spacer_width),
-            toggle_btn,
-        ]
-    )
+    container(row![
+        iced::widget::Space::new().width(left_spacer_width),
+        toggle_btn,
+    ])
     .align_y(iced::alignment::Vertical::Center)
     .width(Length::Fill)
     .height(Length::Fill)
@@ -137,8 +134,6 @@ fn header(app: &App) -> Element<'_, Message> {
     .into()
 }
 
-const NAV_BTN_ICON_SIZE: u32 = 34;
-
 fn nav_btn<'a>(
     icon: iced::widget::Text<'a>,
     label: &'a str,
@@ -147,7 +142,11 @@ fn nav_btn<'a>(
     enabled: bool,
 ) -> Element<'a, Message> {
     let is_active = app.screen == screen;
-    let btn_style = if is_active { button::primary } else { button::text };
+    let btn_style = if is_active {
+        button::primary
+    } else {
+        button::text
+    };
 
     if app.sidebar_expanded {
         let content = row![icon, text(label).size(14)]

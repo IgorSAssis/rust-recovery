@@ -88,4 +88,5 @@ pub const ZIP_SIGNATURE: Signature = Signature {
     footer_pattern: &[0x50, 0x4B, 0x05, 0x06],
 };
 
-pub const SUPPORTED_SIGNATURES: &[Signature] = &[JPEG_SIGNATURE, PNG_SIGNATURE, PDF_SIGNATURE, ZIP_SIGNATURE];
+pub const SUPPORTED_SIGNATURES: &[Signature] =
+    &[JPEG_SIGNATURE, PNG_SIGNATURE, PDF_SIGNATURE, ZIP_SIGNATURE];

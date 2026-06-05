@@ -4,8 +4,8 @@ use device_detector::StorageDevice;
 use recovery_engine::types::ExtractedFile;
 pub use recovery_engine::types::StrategyKind;
 
-use crate::screen::Screen;
 use crate::locale::Locale;
+use crate::screen::Screen;
 
 /// All possible actions that can change the application state.
 #[derive(Debug, Clone)]

@@ -40,37 +40,72 @@ fn default_raw() -> [u8; 512] {
 
 #[test]
 fn parse_bytes_extracts_bytes_per_sector() {
-    assert_eq!(Fat32BootSector::parse_bytes(&default_raw()).unwrap().bytes_per_sector, 512);
+    assert_eq!(
+        Fat32BootSector::parse_bytes(&default_raw())
+            .unwrap()
+            .bytes_per_sector,
+        512
+    );
 }
 
 #[test]
 fn parse_bytes_extracts_sectors_per_cluster() {
-    assert_eq!(Fat32BootSector::parse_bytes(&default_raw()).unwrap().sectors_per_cluster, 8);
+    assert_eq!(
+        Fat32BootSector::parse_bytes(&default_raw())
+            .unwrap()
+            .sectors_per_cluster,
+        8
+    );
 }
 
 #[test]
 fn parse_bytes_extracts_reserved_sectors() {
-    assert_eq!(Fat32BootSector::parse_bytes(&default_raw()).unwrap().reserved_sectors, 32);
+    assert_eq!(
+        Fat32BootSector::parse_bytes(&default_raw())
+            .unwrap()
+            .reserved_sectors,
+        32
+    );
 }
 
 #[test]
 fn parse_bytes_extracts_num_fats() {
-    assert_eq!(Fat32BootSector::parse_bytes(&default_raw()).unwrap().num_fats, 2);
+    assert_eq!(
+        Fat32BootSector::parse_bytes(&default_raw())
+            .unwrap()
+            .num_fats,
+        2
+    );
 }
 
 #[test]
 fn parse_bytes_extracts_total_sectors_32() {
-    assert_eq!(Fat32BootSector::parse_bytes(&default_raw()).unwrap().total_sectors_32, 20480);
+    assert_eq!(
+        Fat32BootSector::parse_bytes(&default_raw())
+            .unwrap()
+            .total_sectors_32,
+        20480
+    );
 }
 
 #[test]
 fn parse_bytes_extracts_fat_size_32() {
-    assert_eq!(Fat32BootSector::parse_bytes(&default_raw()).unwrap().fat_size_32, 20);
+    assert_eq!(
+        Fat32BootSector::parse_bytes(&default_raw())
+            .unwrap()
+            .fat_size_32,
+        20
+    );
 }
 
 #[test]
 fn parse_bytes_extracts_root_cluster() {
-    assert_eq!(Fat32BootSector::parse_bytes(&default_raw()).unwrap().root_cluster, 2);
+    assert_eq!(
+        Fat32BootSector::parse_bytes(&default_raw())
+            .unwrap()
+            .root_cluster,
+        2
+    );
 }
 
 // ── derived computations ──────────────────────────────────────────────────────
@@ -78,19 +113,34 @@ fn parse_bytes_extracts_root_cluster() {
 #[test]
 fn cluster_size_is_bytes_per_sector_times_sectors_per_cluster() {
     // 512 * 8 = 4096
-    assert_eq!(Fat32BootSector::parse_bytes(&default_raw()).unwrap().cluster_size(), 4096);
+    assert_eq!(
+        Fat32BootSector::parse_bytes(&default_raw())
+            .unwrap()
+            .cluster_size(),
+        4096
+    );
 }
 
 #[test]
 fn fat_start_offset_is_reserved_sectors_times_bytes_per_sector() {
     // 32 * 512 = 16384
-    assert_eq!(Fat32BootSector::parse_bytes(&default_raw()).unwrap().fat_start_offset(), 16384);
+    assert_eq!(
+        Fat32BootSector::parse_bytes(&default_raw())
+            .unwrap()
+            .fat_start_offset(),
+        16384
+    );
 }
 
 #[test]
 fn data_start_offset_accounts_for_both_fats() {
     // fat_start(16384) + 2 fats × 20 sectors × 512 bytes = 16384 + 20480 = 36864
-    assert_eq!(Fat32BootSector::parse_bytes(&default_raw()).unwrap().data_start_offset(), 36864);
+    assert_eq!(
+        Fat32BootSector::parse_bytes(&default_raw())
+            .unwrap()
+            .data_start_offset(),
+        36864
+    );
 }
 
 #[test]
@@ -102,7 +152,10 @@ fn cluster_offset_for_cluster_2_equals_data_start() {
 #[test]
 fn cluster_offset_for_cluster_3_is_one_cluster_size_past_data_start() {
     let boot = Fat32BootSector::parse_bytes(&default_raw()).unwrap();
-    assert_eq!(boot.cluster_offset(3), Some(boot.data_start_offset() + boot.cluster_size()));
+    assert_eq!(
+        boot.cluster_offset(3),
+        Some(boot.data_start_offset() + boot.cluster_size())
+    );
 }
 
 #[test]

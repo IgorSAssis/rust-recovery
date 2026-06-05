@@ -9,9 +9,12 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let translations = app.translations();
 
     let detect_btn = button(
-        row![bootstrap::arrow_clockwise().size(14), text(translations.detect_btn).size(14)]
-            .spacing(8)
-            .align_y(Alignment::Center),
+        row![
+            bootstrap::arrow_clockwise().size(14),
+            text(translations.detect_btn).size(14)
+        ]
+        .spacing(8)
+        .align_y(Alignment::Center),
     )
     .on_press(Message::DetectDevicesPressed);
 

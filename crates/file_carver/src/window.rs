@@ -86,6 +86,9 @@ impl ScanWindow {
         let tail_start = new_bytes.len().saturating_sub(self.overlap_size);
         self.overlap = new_bytes[tail_start..].to_vec();
 
-        Ok(Some(WindowSlice { bytes: window_bytes, base }))
+        Ok(Some(WindowSlice {
+            bytes: window_bytes,
+            base,
+        }))
     }
 }

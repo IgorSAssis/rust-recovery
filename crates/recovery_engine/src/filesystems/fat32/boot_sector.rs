@@ -128,9 +128,8 @@ impl Fat32BootSector {
     /// This is the reference point for all cluster address calculations:
     /// `cluster_offset(n) = data_start + (n - 2) * cluster_size`
     pub fn data_start_offset(&self) -> u64 {
-        let fat_bytes = self.num_fats as u64
-            * self.fat_size_32 as u64
-            * self.bytes_per_sector as u64;
+        let fat_bytes =
+            self.num_fats as u64 * self.fat_size_32 as u64 * self.bytes_per_sector as u64;
         self.fat_start_offset() + fat_bytes
     }
 

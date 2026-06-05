@@ -1,6 +1,6 @@
 use std::io::Cursor;
 
-use super::{DeletedEntry, Fat32RawDirEntry, DELETED_MARKER, list_deleted_entries};
+use super::{DELETED_MARKER, DeletedEntry, Fat32RawDirEntry, list_deleted_entries};
 use crate::filesystems::fat32::test_helpers::{build_image, make_dir_entry};
 
 // ── Fat32RawDirEntry — field detection ────────────────────────────────────────
@@ -185,10 +185,7 @@ fn list_deleted_entries_finds_multiple_deleted_files() {
 
     let img = build_image(
         &[(root_cluster(), 0x0FFF_FFFF)],
-        &[
-            (entry_a, root_cluster()),
-            (entry_b, root_cluster()),
-        ],
+        &[(entry_a, root_cluster()), (entry_b, root_cluster())],
     );
     let mut cur = Cursor::new(img);
 
@@ -216,10 +213,7 @@ fn list_deleted_entries_skips_live_files() {
 
     let img = build_image(
         &[(root_cluster(), 0x0FFF_FFFF)],
-        &[
-            (live_entry, root_cluster()),
-            (dead_entry, root_cluster()),
-        ],
+        &[(live_entry, root_cluster()), (dead_entry, root_cluster())],
     );
     let mut cur = Cursor::new(img);
 

@@ -170,9 +170,7 @@ impl Scanner {
         let iter = self.signatures.iter();
 
         let per_signature: Vec<(Vec<PendingFile>, Vec<CarvedFile>, Vec<u64>)> = iter
-            .map(|signature| {
-                Self::search_signature(signature, window, known_headers)
-            })
+            .map(|signature| Self::search_signature(signature, window, known_headers))
             .collect();
 
         let mut new_pending: Vec<PendingFile> = Vec::new();

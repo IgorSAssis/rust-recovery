@@ -1,6 +1,6 @@
 use std::io::Cursor;
 
-use super::{collect_cluster_chain, read_fat_entry, FAT_EOC_MIN};
+use super::{FAT_EOC_MIN, collect_cluster_chain, read_fat_entry};
 use crate::filesystems::fat32::{Fat32BootSector, test_helpers::build_image};
 
 // ── helpers ───────────────────────────────────────────────────────────────────
